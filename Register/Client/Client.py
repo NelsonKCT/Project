@@ -1,6 +1,7 @@
 
 import socket
 import json
+
 def main():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
@@ -9,7 +10,7 @@ def main():
     except ConnectionRefusedError:
         print("Connection failed. Is the server running?")
         return
-
+    
     try:
         while True:
             # Receiving data from the server
@@ -34,6 +35,7 @@ def main():
         print("\nConnection interrupted by user.")
     finally:
         client.close()
+
 def createMessage(type, payload, reply_flag):
     message = {
         "type": type,

@@ -1,9 +1,19 @@
 import socket
 import threading
+import sympy
 import sqlite3
 import json
+
 MAX_CLIENT  = 5
 lock  = threading.Lock()
+UserClientDict = {}
+def createMessage(type, payload, reply_flag):
+    message = {
+        "type": type,
+        "data": payload,
+        "reply_required": reply_flag  
+    }
+    return message
 def init_database():
     conn = sqlite3.connect('DataBase/users.db')
     cursor = conn.cursor()
@@ -79,40 +89,56 @@ def Login(client):
                 SELECT * FROM USER WHERE USERNAME == ? AND PASSWD == ?
             """,(p_username["data"], p_passwd["data"])
         )
-        conn.commit()
+        user_data = cursor.fetchall()
         conn.close()
-        client.sendall(json.dumps(createMessage("info", "Login successfully", False)).encode())
+        
         
     except sqlite3.IntegrityError:
-        client.sendall(json.dumps(createMessage("info","Wrong username or password",False)).encode())
-        return 1
+        client.sendall(json.dumps(createMessage("info",f"DataBase error{str(sqlite3.IntegrityError)}",False)).encode())
+        return 1 , None
     finally:
         lock.release()
-    
-    return 0
-def createMessage(type, payload, reply_flag):
-    message = {
-        "type": type,
-        "data": payload,
-        "reply_required": reply_flag  
-    }
-    return message
-def handleClient(client):
+    if not user_data:
+        client.sendall(json.dumps(createMessage("info","Wrong username or password",False)).encode())
+        return 1, None
+    else:
+        client.sendall(json.dumps(createMessage("info", "Login successfully", False)).encode())
+        UserClientDict[p_username["data"]] = client
+        return 0 , p_username["data"]
+
+def handleClient(client,addr):
+    try:
+        while True:
+            client.sendall(json.dumps(createMessage("info","ENTER R to Register L to Login",True)).encode())
+            Letter = client.recv(1024).decode()
+            p_Letter = json.loads(Letter)
+            if p_Letter["data"] == "L":
+                value , name = Login(client)
+                if value == 0:
+                    afterLogin(client,name)
+                    break
+            elif p_Letter["data"] == "R":
+                if Register(client) == 0:
+                    client.sendall(json.dumps(createMessage("info", "Register successfully", False)).encode())
+                    continue
+            else:
+                client.sendall(json.dumps(createMessage("info", "invalid Input", False)).encode())
+                continue
+    except ConnectionResetError:
+        print(f"Client{addr} Disconnected")
+    return
+def afterLogin(client, username):
     while True:
-        client.sendall(json.dumps(createMessage("info","ENTER R to Register L to Login",True)).encode())
-        Letter = client.recv(1024).decode()
-        p_Letter = json.loads(Letter)
-        if p_Letter["data"] == "L":
-           if Login(client) == 0:
-            client.sendall(json.dumps(createMessage("info", "Login successfully", False)).encode())
-            continue
-        elif p_Letter["data"] == "R":
-            if Register(client) == 0:
-             client.sendall(json.dumps(createMessage("info", "Register successfully", False)).encode())
-             continue
-        else:
-            client.sendall(json.dumps(createMessage("info", "invalid Input", False)).encode())
-            continue
+        client.sendall(json.dumps(createMessage("info", f"Welcome {username}", False)).encode())
+        client.sendall(json.dumps(createMessage("info", "Perform operation:\n1.Send Merge Request\n2.Check Merge Request\n")))
+        for key ,val in UserClientDict.items():
+            client.sendall(json.dumps(createMessage("info", f"{key}",False)).encode())
+        client.sendall(json.dumps(createMessage ("info", f"Please Choose user data to merge", True)).encode())
+        r_username = client.recv(1024).decode()
+        p_r_username = json.loads(r_username)
+        client.sendall(json.dumps(createMessage ("info", f"sending request to {p_r_username['data']}", False)).encode())
+        UserClientDict[p_r_username['data']].sendall(json.dumps(createMessage("info", f"merge request from {username}",False)).encode())
+        break
     return
 def serverThread():
     # TCP connection
@@ -122,18 +148,23 @@ def serverThread():
     #binding
     try:
         server.bind((serverIP,port))
-    except:
+    except :
         print("server init failed")
         return
     #listen
     server.listen(MAX_CLIENT)
     while True:
-        client,addr = server.accept()
-        print(f"Client{addr} Connected\n")
-        client.sendall(json.dumps(createMessage("info", "hi",False)).encode())
-        threading.Thread(target = handleClient,args = (client,)).start() 
+        try:
+            client,addr = server.accept()
+            print(f"Client{addr} Connected\n")
+            client.sendall(json.dumps(createMessage("info", "hi",False)).encode())
+            threading.Thread(target = handleClient,args = (client,addr,)).start()
+        except ConnectionResetError:
+            print(f"Client{addr} Disconnected\n")
 
-    
+def generatePrime():
+    prime = sympy.randprime(2**511,2**512)
+    return prime
 def main():
     ServerDown = False
     print("Server Starting ... ")
