@@ -29,6 +29,7 @@ def main():
     time.sleep(2)
     # Start the client
     run_client()
+    #run_client()
 
 if __name__ == "__main__":
     main()
