@@ -1,7 +1,7 @@
 
 import socket
 import json
-
+import Encrypt
 def main():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
@@ -29,6 +29,10 @@ def main():
                     print("Closing connection.")
                     break
                 client.send(json.dumps(message).encode())
+            elif parsed_data['type'] == "prime":
+                with open("prime.txt", "w") as file:
+                    file.write(str(parsed_data['data']))
+
             else:
                 continue
     except KeyboardInterrupt:
