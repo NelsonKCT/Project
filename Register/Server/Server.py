@@ -7,6 +7,7 @@ import json
 MAX_CLIENT  = 5
 lock  = threading.Lock()
 UserClientDict = {}
+prime = 0
 def createMessage(type, payload, reply_flag):
     message = {
         "type": type,
@@ -128,9 +129,13 @@ def handleClient(client,addr):
         print(f"Client{addr} Disconnected")
     return
 def afterLogin(client, username):
+    global prime
     while True:
         client.sendall(json.dumps(createMessage("info", f"Welcome {username}", False)).encode())
-        client.sendall(json.dumps(createMessage("info", "Perform operation:\n1.Send Merge Request\n2.Check Merge Request\n")))
+        ## send prime
+        client.sendall(json.dumps(createMessage("prime",int(prime), False)).encode())
+        ##
+        #client.sendall(json.dumps(createMessage("info", "Perform operation:\n1.Send Merge Request\n2.Check Merge Request\n3.RequestPrime",False)).encode())
         for key ,val in UserClientDict.items():
             client.sendall(json.dumps(createMessage("info", f"{key}",False)).encode())
         client.sendall(json.dumps(createMessage ("info", f"Please Choose user data to merge", True)).encode())
@@ -163,12 +168,13 @@ def serverThread():
             print(f"Client{addr} Disconnected\n")
 
 def generatePrime():
+    global prime
     prime = sympy.randprime(2**511,2**512)
-    return prime
 def main():
     ServerDown = False
     print("Server Starting ... ")
     init_database()
+    generatePrime()
     #server background Thread
     threading.Thread(target = serverThread,daemon = True).start()
     try:
