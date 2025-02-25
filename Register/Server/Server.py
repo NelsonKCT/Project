@@ -1,6 +1,6 @@
 import socket
 import threading
-import sympy
+import sympy 
 import sqlite3
 import json
 
@@ -16,7 +16,7 @@ def createMessage(type, payload, reply_flag):
     }
     return message
 def init_database():
-    conn = sqlite3.connect('DataBase/users.db')
+    conn = sqlite3.connect('/Users/nelsonkct/Documents/Project/Register/DataBase/users.db')
     cursor = conn.cursor()
     lock.acquire()
     cursor.execute(
@@ -55,7 +55,7 @@ def Register(client):
         else:
             break
     try:
-        conn = sqlite3.connect("DataBase/users.db")
+        conn = sqlite3.connect("/Users/nelsonkct/Documents/Project/Register/DataBase/users.db")
         cursor  = conn.cursor()
         lock.acquire()
         cursor.execute(
@@ -82,7 +82,7 @@ def Login(client):
 
     p_passwd = json.loads(passwd)
     try:
-        conn = sqlite3.connect('DataBase/users.db')
+        conn = sqlite3.connect('/Users/nelsonkct/Documents/Project/Register/DataBase/users.db')
         cursor = conn.cursor()
         lock.acquire()
         cursor.execute(
