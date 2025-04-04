@@ -1,5 +1,5 @@
 import json
-def createMessage(type, payload, reply_flag):
+def createMessage(type:str, payload:str, reply_flag:bool):
 	message = {
 		"type": type,
 		"data": payload,

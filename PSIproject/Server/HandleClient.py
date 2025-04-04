@@ -17,7 +17,7 @@ class HandleClient:
                 self.client.sendall(createMessage("info", "Enter R to Register L to login Q to quit",True))
                 Letter = decodeMessage(self.client.recv(1024))
                 if Letter["data"] == 'L':
-                    if self.Login():
+                    if self.Login(): 
                         mainSession = UserSession(self.client,self.username)
                         mainSession.run()
                         del mainSession
@@ -37,14 +37,14 @@ class HandleClient:
         username = decodeMessage(self.client.recv(1024))["data"]
         self.client.sendall(createMessage("info", "Password:", True))
         password = decodeMessage(self.client.recv(1024))["data"]
-        if not self.dataBase.searchUserPassword(username,password):
+        if not self.dataBase.searchUserPassword(username,password)[0]:
             self.client.sendall(createMessage("info", "Wrong Username or Password",False))
             return False
         else:
             self.client.sendall(createMessage("info","Login Success", False))
             self.isLogin = True
             self.username = username
-            LoginUsers.update_Online_LoginUsers(username,self.isLogin)
+            LoginUsers.update_Online_LoginUsers(username,self.client,self.isLogin)
             return True
 
 
@@ -55,7 +55,7 @@ class HandleClient:
             username = decodeMessage(self.client.recv(1024))["data"]
             if not self.dataBase.searchUser(username):
                 break
-            self.client.sendall(createMessage("info", "Username "))
+            self.client.sendall(createMessage("info", "Username already Exists",False))
             
         password   = None 
         while True:
