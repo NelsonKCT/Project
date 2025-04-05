@@ -34,6 +34,8 @@ class DataBase:
                     VALUES(?, ?)
                 """,(username,password)
             )
+            self.conn.commit()
+        return
             
     def searchUser(self,username):
         user = None
