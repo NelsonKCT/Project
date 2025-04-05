@@ -22,7 +22,9 @@ class MergeRequest:
                     USER1_ID TEXT NOT NULL,
                     USER2_ID TEXT NOT NULL,
                     USER1_CONFIRM BOOLEAN DEFAULT FALSE,
-                    USER2_CONFIRM BOOLEAN DEFAULT FALSE     
+                    USER2_CONFIRM BOOLEAN DEFAULT FALSE,
+                    USER1_CID TEXT DEFAULT "",
+                    USER2_CID TEXT DEFAULT ""
                 )
                 """
             )
@@ -44,22 +46,6 @@ class MergeRequest:
             except sqlite3.IntegrityError:
                 raise sqlite3.IntegrityError("Requests Exists")
         
-    def isReady(self,requestID):
-        with MergeRequest._lock:
-            try:
-                self.cursor.execute(
-                    """
-                        SELECT USER1_CONFIRM, USER2_CONFIRM 
-                        FROM MERGE_REQUESTS
-                        WHERE REQUESTID = ?
-                    """,(requestID)
-                )
-                result  = self.cursor.fetchone()
-                if not result :
-                    raise ValueError("Request does not exist")
-            except:
-                ...
-        ...
     def checkAllMergeRequest(self, username):
         with MergeRequest._lock:
             try:
@@ -72,7 +58,10 @@ class MergeRequest:
                 )
 
                 result  = self.cursor.fetchall()
-                List_result = [row[0] for row in  result]
+                column_names = [description[0] for description in self.cursor.description]
+                names = " | ".join(column_names)
+                List_result = [" | ".join(str(item) for item in row) for row in  result]
+                List_result.insert(0,names)
                 if not result:
                     raise ValueError("You dont have a single request")
                 return List_result
@@ -124,3 +113,34 @@ class MergeRequest:
             except Exception as e:
                 print(f"Error confirming merge request: {e}")
         ...
+    def searchRequestID(self, requestID):
+        with MergeRequest._lock:
+            self.cursor.execute(
+                """
+                SELECT * FROM MERGE_REQUESTS
+                WHERE REQUESTS_ID = ?
+                """,(requestID,)
+            )
+            datas = self.cursor.fetchall()
+        if not datas:
+            raise ValueError("Request ID does not Exists")
+        column_names = [description[0] for description in self.cursor.description]
+        result  = "|".join(column_names) + "\n"
+        for data in datas:
+            temp = "|".join(str(item) for item in data)
+            result += temp + "\n"
+        return result
+
+        ...
+    def getRequest(self,requestID):
+        with MergeRequest._lock:
+            self.cursor.execute(
+                """
+                SELECT * FROM MERGE_REQUESTS
+                WHERE REQUESTS_ID = ?
+                """,(requestID,)
+            )
+            data = self.cursor.fetchone()
+        if not data:
+            raise ValueError(f"RequestID {requestID} Not Found")
+        return data

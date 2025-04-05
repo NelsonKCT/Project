@@ -70,12 +70,35 @@ class UserSession:
             print(f"{e}")
         ...
     def option5(self):
-        self.client.sendall(createMessage("info","ReqeustsID",True))
+        """
+            if requestID Exists
+            if both users confirmed the request
+            if both users are online
+            send signal 
+            both users start encrypt threading process
+        """
+        self.client.sendall(createMessage("info","RequestsID",True))
+
+        
         requestID = decodeMessage(self.client.recv(1024))["data"]
         try:
+            data = self.mergeDB.getRequest(requestID)
+        except ValueError as e:
+            self.client.sendall("info", f"{e}",False)
             ...
-        except:
-            ...
+        username1, username2 ,user1_confirm, user2_confirm = data[1:]
+        if not (user1_confirm and user2_confirm):
+            self.client.sendall(createMessage("info","request hasn't been confirmed by both parties", False))
+            return
+        bothUserOnline = (username1 in LoginUsers._OnlineLoginUsers) and (username2 in LoginUsers._OnlineLoginUsers)
+        if not bothUserOnline:
+            self.client.sendall(createMessage("info","Both user must be online", False))
+            return
+        client1 = LoginUsers._OnlineLoginUsers[username1]
+        client2 = LoginUsers._OnlineLoginUsers[username2]
+        client1.sendall(createMessage("signal",f"{requestID}", False))
+        client2.sendall(createMessage("signal",f"{requestID}", False))
+    
         
         ...
         

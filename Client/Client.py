@@ -1,6 +1,7 @@
 import socket
 import json
 def main():
+    
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         client.connect(("127.0.0.1", 8888))
@@ -30,7 +31,8 @@ def main():
             elif parsed_data['type'] == "prime":
                 with open("prime.txt", "w") as file:
                     file.write(str(parsed_data['data']))
-
+            elif parsed_data['type'] == "signal":
+                print("Signal received")
             else:
                 continue
     except KeyboardInterrupt:
