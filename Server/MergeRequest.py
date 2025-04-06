@@ -144,3 +144,40 @@ class MergeRequest:
         if not data:
             raise ValueError(f"RequestID {requestID} Not Found")
         return data
+    def insertCID(self, username, requestID, CID):
+        with MergeRequest._lock:
+            try:
+                self.cursor.execute(
+                    """
+                    SELECT USER1_ID, USER2_ID FROM MERGE_REQUESTS WHERE REQUESTS_ID = ?
+                    """,
+                    (requestID,)
+                )
+                result = self.cursor.fetchone()  # get single row
+
+                if not result:
+                    raise ValueError("Request ID not found.")
+
+                user1_id, user2_id = result
+                if username == user1_id:
+                    self.cursor.execute(
+                        """
+                        UPDATE MERGE_REQUESTS
+                        SET USER1_CID = ?
+                        WHERE REQUESTS_ID = ?
+                        """,(CID,requestID)
+                    )
+                    self.conn.commit()
+                elif username == user2_id:
+                    self.cursor.execute(
+                        """
+                        UPDATE MERGE_REQUESTS
+                        SET USER2_CID = ?
+                        WHERE REQUESTS_ID = ?
+                        """,(CID, requestID)
+                    )
+                    self.conn.commit()
+                else:
+                     raise ValueError("User is not part of this merge request.")
+            except ValueError as e:
+                raise ValueError(f"{e}")
