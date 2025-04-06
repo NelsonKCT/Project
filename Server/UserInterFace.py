@@ -1,9 +1,11 @@
 import threading
 import MergeRequest
+import socket
 class LoginUsers:
     _path = "./onlineUser.xlsx"
-    _OnlineLoginUsers = set()
+    _OnlineLoginUsers = {}
     _lock = threading.Lock()
+    
 
 
     @staticmethod
@@ -17,11 +19,11 @@ class LoginUsers:
         " 5. Start Merge Request"]
         return "".join(strs)
     @staticmethod   
-    def update_Online_LoginUsers(username:str,isLogin:bool):
+    def update_Online_LoginUsers(username:str,client:socket,isLogin:bool):
         with LoginUsers._lock:
             if isLogin:
-                LoginUsers._OnlineLoginUsers.add(username)
+                LoginUsers._OnlineLoginUsers[username] = client
             else:
-                LoginUsers._OnlineLoginUsers.discard(username) 
+                LoginUsers._OnlineLoginUsers.pop(username)
 
         

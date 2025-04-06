@@ -15,7 +15,7 @@ def create_ipfs_network():
     """
     try:
         # Check if IPFS is running
-        result = subprocess.run(['ipfs', 'swarm', 'peers'], capture_output=True, text=True)
+        result = subprocess.run(['ipfs', 'swarm', 'peers'], capture_output=True, text=True) 
         if result.returncode == 0:
             print("IPFS daemon is already running")
             return True
