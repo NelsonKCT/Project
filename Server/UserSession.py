@@ -32,6 +32,9 @@ class UserSession:
             elif option == '5':#start merge request
                 self.option5()
                 pass
+            elif option == '6':
+                self.option6()
+                pass
             elif option == 'Q':
                 LoginUsers.update_Online_LoginUsers(self.username,self.client ,False)
                 self.client.sendall(createMessage("info", "Logging out...", False))
@@ -84,9 +87,9 @@ class UserSession:
         try:
             data = self.mergeDB.getRequest(requestID)
         except ValueError as e:
-            self.client.sendall("info", f"{e}",False)
+            self.client.sendall(createMessage("info", f"{e}",False))
             ...
-        username1, username2 ,user1_confirm, user2_confirm = data[1:]
+        username1, username2 ,user1_confirm, user2_confirm,user1_cid, user2_cid = data[1:]
         if not (user1_confirm and user2_confirm):
             self.client.sendall(createMessage("info","request hasn't been confirmed by both parties", False))
             return
@@ -98,8 +101,16 @@ class UserSession:
         client2 = LoginUsers._OnlineLoginUsers[username2]
         client1.sendall(createMessage("signal",f"{requestID}", False))
         client2.sendall(createMessage("signal",f"{requestID}", False))
-    
-        
+    def option6(self):
+        self.client.sendall(createMessage("info","RequestsID",True))
+        requestID = decodeMessage(self.client.recv(1024))["data"]
+        self.client.sendall(createMessage("info" , "CID" , True))
+        CID = decodeMessage(self.client.recv(1024))["data"]
+        try :
+            self.mergeDB.insertCID(self.username,requestID, CID)
+        except ValueError as E:
+            self.client.sendall(createMessage("info", f"{E}", False))
+
         ...
         
     def __del__(self):
