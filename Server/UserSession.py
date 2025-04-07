@@ -1,9 +1,13 @@
-
 from UserInterFace import LoginUsers
 from Message import decodeMessage, createMessage
 from MergeRequest import MergeRequest
 import sqlite3
 import hashlib
+import subprocess
+import os
+import json
+import sys
+
 class UserSession:
     def __init__(self, client, username):
         self.client = client
@@ -34,6 +38,9 @@ class UserSession:
                 pass
             elif option == '6':
                 self.option6()
+                pass
+            elif option == '7':#upload to IPFS
+                self.option7()
                 pass
             elif option == 'Q':
                 LoginUsers.update_Online_LoginUsers(self.username,self.client ,False)
@@ -113,5 +120,49 @@ class UserSession:
 
         ...
         
+    def option7(self):
+        """
+        Execute the upload_to_ipfs.py script in the Client directory and return the CID to the user
+        """
+        self.client.sendall(createMessage("info", "Uploading Encrypted_Data to IPFS...", False))
+        
+        try:
+            # Get the absolute path to the Client directory
+            # Assuming the Client directory is at the same level as the Server directory
+            server_dir = os.path.dirname(os.path.abspath(__file__))
+            client_dir = os.path.join(os.path.dirname(server_dir), "Client")
+            
+            # Add Client directory to Python path if it's not already there
+            if client_dir not in sys.path:
+                sys.path.append(os.path.dirname(server_dir))
+            
+            # Import the upload_to_ipfs module and call its main function
+            from Client.upload_to_ipfs import upload_encrypted_data_to_ipfs
+            
+            # Change working directory to Client directory temporarily
+            original_dir = os.getcwd()
+            os.chdir(client_dir)
+            
+            try:
+                # Run the upload function and get CID directly
+                cid = upload_encrypted_data_to_ipfs()
+                
+                # Change back to the original directory
+                os.chdir(original_dir)
+                
+                if cid:
+                    status_msg = f"Upload successful!\nCID: {cid}\n"
+                    self.client.sendall(createMessage("info", status_msg, False))
+                else:
+                    self.client.sendall(createMessage("info", "Upload failed to return a valid CID.", False))
+            finally:
+                # Ensure we go back to the original directory even if there's an error
+                if os.getcwd() != original_dir:
+                    os.chdir(original_dir)
+                
+        except Exception as e:
+            error_msg = f"Failed to upload to IPFS: {str(e)}"
+            self.client.sendall(createMessage("info", error_msg, False))
+    
     def __del__(self):
         pass
