@@ -18,7 +18,9 @@ class LoginUsers:
         " 4. Confirm Merge Request\n",
         " 5. Start Merge Request\n",
         " 6. Send CID\n",
-        " 7. Upload to IPFS"]
+        " 7. Upload to IPFS\n",
+        " 8. Get Partner CID\n",
+        " 9. Download from IPFS"]
         return "".join(strs)
     @staticmethod   
     def update_Online_LoginUsers(username:str,client:socket,isLogin:bool):

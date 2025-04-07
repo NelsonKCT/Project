@@ -7,12 +7,26 @@ import subprocess
 import os
 import json
 import sys
+import importlib.util
 
 class UserSession:
     def __init__(self, client, username):
         self.client = client
         self.username = username
         self.mergeDB = MergeRequest()
+        
+        # Initialize the local database manager
+        client_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Client")
+        db_path = os.path.join(client_dir, "id_record.db")
+        
+        # Import the LocalDBManager class dynamically
+        db_module_path = os.path.join(client_dir, "id_database.py")
+        spec = importlib.util.spec_from_file_location("id_database", db_module_path)
+        db_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(db_module)
+        
+        # Create an instance of LocalDBManager
+        self.local_db = db_module.LocalDBManager(db_path)
 
     def run(self):
         while True:
@@ -41,6 +55,12 @@ class UserSession:
                 pass
             elif option == '7':#upload to IPFS
                 self.option7()
+                pass
+            elif option == '8':#get partner CID
+                self.option8()
+                pass
+            elif option == '9':#download from IPFS
+                self.option9()
                 pass
             elif option == 'Q':
                 LoginUsers.update_Online_LoginUsers(self.username,self.client ,False)
@@ -113,8 +133,15 @@ class UserSession:
         requestID = decodeMessage(self.client.recv(1024))["data"]
         self.client.sendall(createMessage("info" , "CID" , True))
         CID = decodeMessage(self.client.recv(1024))["data"]
-        try :
-            self.mergeDB.insertCID(self.username,requestID, CID)
+        
+        try:
+            # Send CID to server
+            self.mergeDB.insertCID(self.username, requestID, CID)
+            
+            # Also store in local database
+            self.local_db.record_my_cid(requestID, CID)
+            
+            self.client.sendall(createMessage("info", "CID recorded successfully on server and local database", False))
         except ValueError as E:
             self.client.sendall(createMessage("info", f"{E}", False))
 
@@ -132,12 +159,11 @@ class UserSession:
             server_dir = os.path.dirname(os.path.abspath(__file__))
             client_dir = os.path.join(os.path.dirname(server_dir), "Client")
             
-            # Add Client directory to Python path if it's not already there
-            if client_dir not in sys.path:
-                sys.path.append(os.path.dirname(server_dir))
-            
-            # Import the upload_to_ipfs module and call its main function
-            from Client.upload_to_ipfs import upload_encrypted_data_to_ipfs
+            # Import the upload_to_ipfs module dynamically
+            upload_module_path = os.path.join(client_dir, "upload_to_ipfs.py")
+            spec = importlib.util.spec_from_file_location("upload_to_ipfs", upload_module_path)
+            upload_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(upload_module)
             
             # Change working directory to Client directory temporarily
             original_dir = os.getcwd()
@@ -145,7 +171,7 @@ class UserSession:
             
             try:
                 # Run the upload function and get CID directly
-                cid = upload_encrypted_data_to_ipfs()
+                cid = upload_module.upload_encrypted_data_to_ipfs()
                 
                 # Change back to the original directory
                 os.chdir(original_dir)
@@ -164,5 +190,102 @@ class UserSession:
             error_msg = f"Failed to upload to IPFS: {str(e)}"
             self.client.sendall(createMessage("info", error_msg, False))
     
+    def option8(self):
+        """
+        Get the partner's CID from the server and store it in the local database
+        """
+        self.client.sendall(createMessage("info", "Enter RequestID to get partner's CID:", True))
+        requestID = decodeMessage(self.client.recv(1024))["data"]
+        
+        try:
+            # Get the merge request data from the server
+            data = self.mergeDB.getRequest(requestID)
+            
+            # Extract user IDs and CIDs
+            request_id, user1_id, user2_id, _, _, user1_cid, user2_cid = data
+            
+            # Determine which user is the partner and get their CID
+            if self.username == user1_id:
+                partner_username = user2_id
+                partner_cid = user2_cid
+            elif self.username == user2_id:
+                partner_username = user1_id
+                partner_cid = user1_cid
+            else:
+                self.client.sendall(createMessage("info", "You are not part of this merge request", False))
+                return
+            
+            if not partner_cid:
+                self.client.sendall(createMessage("info", f"Partner {partner_username} has not uploaded a CID yet", False))
+                return
+            
+            # Store the partner's CID in the local database
+            self.local_db.record_partner_cid(requestID, partner_cid)
+            
+            # Display CID info to the user
+            response = f"Partner {partner_username}'s CID: {partner_cid}\n"
+            response += "This CID has been saved to your local database.\n"
+            response += "To retrieve their files: ipfs get " + partner_cid
+            
+            self.client.sendall(createMessage("info", response, False))
+            
+        except ValueError as e:
+            self.client.sendall(createMessage("info", f"Error: {e}", False))
+        except Exception as e:
+            self.client.sendall(createMessage("info", f"Unexpected error: {e}", False))
+    
+    def option9(self):
+        """
+        Download files from IPFS using a CID
+        """
+        self.client.sendall(createMessage("info", "Enter the CID to download from IPFS:", True))
+        cid = decodeMessage(self.client.recv(1024))["data"]
+        
+        if not cid:
+            self.client.sendall(createMessage("info", "Error: No CID provided", False))
+            return
+        
+        # Ask for download location
+        self.client.sendall(createMessage("info", "Enter download location (leave blank for default 'Downloaded_Data'):", True))
+        download_path = decodeMessage(self.client.recv(1024))["data"]
+        
+        if not download_path:
+            # Get the Client directory path
+            server_dir = os.path.dirname(os.path.abspath(__file__))
+            client_dir = os.path.join(os.path.dirname(server_dir), "Client")
+            download_path = os.path.join(client_dir, "Downloaded_Data")
+        
+        # Create the download directory if it doesn't exist
+        os.makedirs(download_path, exist_ok=True)
+        
+        try:
+            self.client.sendall(createMessage("info", f"Downloading from IPFS (CID: {cid})...", False))
+            
+            # Use subprocess to call the IPFS get command
+            result = subprocess.run(
+                ["ipfs", "get", "-o", download_path, cid],
+                capture_output=True,
+                text=True
+            )
+            
+            if result.returncode == 0:
+                # Determine the downloaded file/folder path
+                downloaded_path = os.path.join(download_path, os.path.basename(cid))
+                
+                # Prepare the success message
+                success_msg = f"Successfully downloaded IPFS content with CID: {cid}\n"
+                success_msg += f"Location: {downloaded_path}\n\n"
+                
+                self.client.sendall(createMessage("info", success_msg, False))
+            else:
+                error_msg = f"Error downloading from IPFS: {result.stderr}"
+                self.client.sendall(createMessage("info", error_msg, False))
+                
+        except Exception as e:
+            error_msg = f"Failed to download from IPFS: {str(e)}"
+            self.client.sendall(createMessage("info", error_msg, False))
+    
     def __del__(self):
-        pass
+        # Close the local database connection when the session ends
+        if hasattr(self, 'local_db'):
+            self.local_db.close()
