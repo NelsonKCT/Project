@@ -93,6 +93,58 @@ def main():
                         error_msg = f"Failed to download from IPFS: {str(e)}"
                         response = createMessage("info", error_msg, False)
                         client.send(json.dumps(response).encode())
+                elif parsed_data['data'].startswith("record_my_cid:"):
+                    try:
+                        # Extract record info from the signal
+                        record_info = json.loads(parsed_data['data'].split(":", 1)[1])
+                        request_id = record_info['request_id']
+                        cid = record_info['cid']
+                        
+                        # Import the id_database module
+                        current_dir = os.path.dirname(os.path.abspath(__file__))
+                        db_path = os.path.join(current_dir, "id_record.db")
+                        db_module_path = os.path.join(current_dir, "id_database.py")
+                        spec = importlib.util.spec_from_file_location("id_database", db_module_path)
+                        db_module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(db_module)
+                        
+                        # Create database connection and record CID
+                        local_db = db_module.LocalDBManager(db_path)
+                        local_db.record_my_cid(request_id, cid)
+                        local_db.close()
+                        
+                        response = createMessage("info", "Successfully recorded CID in local database", False)
+                        client.send(json.dumps(response).encode())
+                    except Exception as e:
+                        error_msg = f"Failed to record CID in local database: {str(e)}"
+                        response = createMessage("info", error_msg, False)
+                        client.send(json.dumps(response).encode())
+                elif parsed_data['data'].startswith("record_partner_cid:"):
+                    try:
+                        # Extract record info from the signal
+                        record_info = json.loads(parsed_data['data'].split(":", 1)[1])
+                        request_id = record_info['request_id']
+                        partner_cid = record_info['partner_cid']
+                        
+                        # Import the id_database module
+                        current_dir = os.path.dirname(os.path.abspath(__file__))
+                        db_path = os.path.join(current_dir, "id_record.db")
+                        db_module_path = os.path.join(current_dir, "id_database.py")
+                        spec = importlib.util.spec_from_file_location("id_database", db_module_path)
+                        db_module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(db_module)
+                        
+                        # Create database connection and record partner CID
+                        local_db = db_module.LocalDBManager(db_path)
+                        local_db.record_partner_cid(request_id, partner_cid)
+                        local_db.close()
+                        
+                        response = createMessage("info", "Successfully recorded partner CID in local database", False)
+                        client.send(json.dumps(response).encode())
+                    except Exception as e:
+                        error_msg = f"Failed to record partner CID in local database: {str(e)}"
+                        response = createMessage("info", error_msg, False)
+                        client.send(json.dumps(response).encode())
                 else:
                     print(f"Received signal: {parsed_data['data']}")
             else:

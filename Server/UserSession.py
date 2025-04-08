@@ -14,19 +14,6 @@ class UserSession:
         self.client = client
         self.username = username
         self.mergeDB = MergeRequest()
-        
-        # Initialize the local database manager
-        client_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Client")
-        db_path = os.path.join(client_dir, "id_record.db")
-        
-        # Import the LocalDBManager class dynamically
-        db_module_path = os.path.join(client_dir, "id_database.py")
-        spec = importlib.util.spec_from_file_location("id_database", db_module_path)
-        db_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(db_module)
-        
-        # Create an instance of LocalDBManager
-        self.local_db = db_module.LocalDBManager(db_path)
 
     def run(self):
         while True:
@@ -129,23 +116,35 @@ class UserSession:
         client1.sendall(createMessage("signal",f"{requestID}", False))
         client2.sendall(createMessage("signal",f"{requestID}", False))
     def option6(self):
+        """
+        Send a signal to the client to record CID in local database
+        """
         self.client.sendall(createMessage("info","RequestsID",True))
         requestID = decodeMessage(self.client.recv(1024))["data"]
         self.client.sendall(createMessage("info" , "CID" , True))
         CID = decodeMessage(self.client.recv(1024))["data"]
         
         try:
-            # Send CID to server
+            # Send CID to server database
             self.mergeDB.insertCID(self.username, requestID, CID)
             
-            # Also store in local database
-            self.local_db.record_my_cid(requestID, CID)
+            # Send signal to client to record in local database
+            record_info = {
+                "request_id": requestID,
+                "cid": CID
+            }
+            self.client.sendall(createMessage("signal", f"record_my_cid:{json.dumps(record_info)}", False))
             
-            self.client.sendall(createMessage("info", "CID recorded successfully on server and local database", False))
+            # Wait for client's response
+            response = decodeMessage(self.client.recv(1024))
+            
+            if response["type"] == "info" and "success" in response["data"].lower():
+                self.client.sendall(createMessage("info", "CID recorded successfully on server and local database", False))
+            else:
+                self.client.sendall(createMessage("info", f"CID recorded on server, but client reported: {response['data']}", False))
+                
         except ValueError as E:
             self.client.sendall(createMessage("info", f"{E}", False))
-
-        ...
         
     def option7(self):
         """
@@ -161,7 +160,7 @@ class UserSession:
     
     def option8(self):
         """
-        Get the partner's CID from the server and store it in the local database
+        Get the partner's CID from the server and signal client to store it
         """
         self.client.sendall(createMessage("info", "Enter RequestID to get partner's CID:", True))
         requestID = decodeMessage(self.client.recv(1024))["data"]
@@ -188,15 +187,27 @@ class UserSession:
                 self.client.sendall(createMessage("info", f"Partner {partner_username} has not uploaded a CID yet", False))
                 return
             
-            # Store the partner's CID in the local database
-            self.local_db.record_partner_cid(requestID, partner_cid)
+            # Send signal to client to record partner CID
+            partner_info = {
+                "request_id": requestID,
+                "partner_cid": partner_cid
+            }
+            self.client.sendall(createMessage("signal", f"record_partner_cid:{json.dumps(partner_info)}", False))
+            
+            # Wait for client's response
+            response = decodeMessage(self.client.recv(1024))
             
             # Display CID info to the user
-            response = f"Partner {partner_username}'s CID: {partner_cid}\n"
-            response += "This CID has been saved to your local database.\n"
-            response += "To retrieve their files: ipfs get " + partner_cid
+            result_info = f"Partner {partner_username}'s CID: {partner_cid}\n"
             
-            self.client.sendall(createMessage("info", response, False))
+            if response["type"] == "info" and "success" in response["data"].lower():
+                result_info += "This CID has been saved to your local database.\n"
+            else:
+                result_info += f"Warning: {response['data']}\n"
+                
+            result_info += "To retrieve their files: ipfs get " + partner_cid
+            
+            self.client.sendall(createMessage("info", result_info, False))
             
         except ValueError as e:
             self.client.sendall(createMessage("info", f"Error: {e}", False))
@@ -233,6 +244,5 @@ class UserSession:
         self.client.sendall(createMessage("info", response["data"], False))
     
     def __del__(self):
-        # Close the local database connection when the session ends
-        if hasattr(self, 'local_db'):
-            self.local_db.close()
+        # No need to close the database connection anymore
+        pass
