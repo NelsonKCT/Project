@@ -100,10 +100,10 @@ class UserSession:
         requestID = decodeMessage(self.client.recv(1024))["data"]
         try:
             data = self.mergeDB.getRequest(requestID)
+            username1, username2 ,user1_confirm, user2_confirm = data[1:5]
         except ValueError as e:
             self.client.sendall(createMessage("info", f"{e}",False))
             ...
-        username1, username2 ,user1_confirm, user2_confirm,user1_cid, user2_cid = data[1:]
         if not (user1_confirm and user2_confirm):
             self.client.sendall(createMessage("info","request hasn't been confirmed by both parties", False))
             return
