@@ -149,46 +149,15 @@ class UserSession:
         
     def option7(self):
         """
-        Execute the upload_to_ipfs.py script in the Client directory and return the CID to the user
+        Send a signal to the client to upload files to IPFS
         """
-        self.client.sendall(createMessage("info", "Uploading Encrypted_Data to IPFS...", False))
-        
-        try:
-            # Get the absolute path to the Client directory
-            # Assuming the Client directory is at the same level as the Server directory
-            server_dir = os.path.dirname(os.path.abspath(__file__))
-            client_dir = os.path.join(os.path.dirname(server_dir), "Client")
-            
-            # Import the upload_to_ipfs module dynamically
-            upload_module_path = os.path.join(client_dir, "upload_to_ipfs.py")
-            spec = importlib.util.spec_from_file_location("upload_to_ipfs", upload_module_path)
-            upload_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(upload_module)
-            
-            # Change working directory to Client directory temporarily
-            original_dir = os.getcwd()
-            os.chdir(client_dir)
-            
-            try:
-                # Run the upload function and get CID directly
-                cid = upload_module.upload_encrypted_data_to_ipfs()
-                
-                # Change back to the original directory
-                os.chdir(original_dir)
-                
-                if cid:
-                    status_msg = f"Upload successful!\nCID: {cid}\n"
-                    self.client.sendall(createMessage("info", status_msg, False))
-                else:
-                    self.client.sendall(createMessage("info", "Upload failed to return a valid CID.", False))
-            finally:
-                # Ensure we go back to the original directory even if there's an error
-                if os.getcwd() != original_dir:
-                    os.chdir(original_dir)
-                
-        except Exception as e:
-            error_msg = f"Failed to upload to IPFS: {str(e)}"
-            self.client.sendall(createMessage("info", error_msg, False))
+        self.client.sendall(createMessage("signal", "upload_to_ipfs", False))
+        # Wait for the client to respond with the CID
+        response = decodeMessage(self.client.recv(1024))
+        if response["type"] == "info":
+            self.client.sendall(createMessage("info", response["data"], False))
+        else:
+            self.client.sendall(createMessage("info", "Failed to get CID from client", False))
     
     def option8(self):
         """
@@ -236,7 +205,7 @@ class UserSession:
     
     def option9(self):
         """
-        Download files from IPFS using a CID
+        Send CID and download path to client for IPFS download
         """
         self.client.sendall(createMessage("info", "Enter the CID to download from IPFS:", True))
         cid = decodeMessage(self.client.recv(1024))["data"]
@@ -250,40 +219,18 @@ class UserSession:
         download_path = decodeMessage(self.client.recv(1024))["data"]
         
         if not download_path:
-            # Get the Client directory path
-            server_dir = os.path.dirname(os.path.abspath(__file__))
-            client_dir = os.path.join(os.path.dirname(server_dir), "Client")
-            download_path = os.path.join(client_dir, "Downloaded_Data")
+            download_path = "Downloaded_Data"
         
-        # Create the download directory if it doesn't exist
-        os.makedirs(download_path, exist_ok=True)
+        # Send signal to client with CID and download path
+        download_info = {
+            "cid": cid,
+            "download_path": download_path
+        }
+        self.client.sendall(createMessage("signal", f"download_from_ipfs:{json.dumps(download_info)}", False))
         
-        try:
-            self.client.sendall(createMessage("info", f"Downloading from IPFS (CID: {cid})...", False))
-            
-            # Use subprocess to call the IPFS get command
-            result = subprocess.run(
-                ["ipfs", "get", "-o", download_path, cid],
-                capture_output=True,
-                text=True
-            )
-            
-            if result.returncode == 0:
-                # Determine the downloaded file/folder path
-                downloaded_path = os.path.join(download_path, os.path.basename(cid))
-                
-                # Prepare the success message
-                success_msg = f"Successfully downloaded IPFS content with CID: {cid}\n"
-                success_msg += f"Location: {downloaded_path}\n\n"
-                
-                self.client.sendall(createMessage("info", success_msg, False))
-            else:
-                error_msg = f"Error downloading from IPFS: {result.stderr}"
-                self.client.sendall(createMessage("info", error_msg, False))
-                
-        except Exception as e:
-            error_msg = f"Failed to download from IPFS: {str(e)}"
-            self.client.sendall(createMessage("info", error_msg, False))
+        # Wait for client's response
+        response = decodeMessage(self.client.recv(1024))
+        self.client.sendall(createMessage("info", response["data"], False))
     
     def __del__(self):
         # Close the local database connection when the session ends
