@@ -49,6 +49,12 @@ class UserSession:
             elif option == '9':#download from IPFS
                 self.option9()
                 pass
+            elif option == '10':#start PSI protocol
+                self.option10()
+                pass
+            elif option == '11':#PSI exchange CID step
+                self.option11()
+                pass
             elif option == 'Q':
                 LoginUsers.update_Online_LoginUsers(self.username,self.client ,False)
                 self.client.sendall(createMessage("info", "Logging out...", False))
@@ -243,6 +249,97 @@ class UserSession:
         response = decodeMessage(self.client.recv(1024))
         self.client.sendall(createMessage("info", response["data"], False))
     
+    def option10(self):
+        """
+        Start PSI protocol - Step 1: Initialize and compute first blinded values
+        """
+        # Ask for Excel file path
+        self.client.sendall(createMessage("info", "Enter Excel file path:", True))
+        excel_path = decodeMessage(self.client.recv(1024))["data"]
+        
+        # Ask for identifier columns
+        self.client.sendall(createMessage("info", "Enter identifier columns (comma-separated, e.g. 's_id,p_id,s_sex'):", True))
+        id_columns_str = decodeMessage(self.client.recv(1024))["data"]
+        id_columns = [col.strip() for col in id_columns_str.split(',')]
+        
+        # Ask for data columns
+        self.client.sendall(createMessage("info", "Enter data columns to share (comma-separated, e.g. 'county,region'):", True))
+        data_columns_str = decodeMessage(self.client.recv(1024))["data"]
+        data_columns = [col.strip() for col in data_columns_str.split(',')]
+        
+        # Ask for private key
+        self.client.sendall(createMessage("info", "Enter your private key (integer):", True))
+        private_key_str = decodeMessage(self.client.recv(1024))["data"]
+        try:
+            private_key = int(private_key_str)
+        except ValueError:
+            self.client.sendall(createMessage("info", "Invalid private key. Please enter an integer.", False))
+            return
+        
+        # Ask for shared prime
+        self.client.sendall(createMessage("info", "Enter the shared prime number:", True))
+        prime_str = decodeMessage(self.client.recv(1024))["data"]
+        try:
+            prime = int(prime_str)
+        except ValueError:
+            self.client.sendall(createMessage("info", "Invalid prime number. Please enter an integer.", False))
+            return
+        
+        # Create PSI parameters
+        psi_params = {
+            "excel_path": excel_path,
+            "id_columns": id_columns,
+            "data_columns": data_columns,
+            "private_key": private_key,
+            "prime": prime
+        }
+        
+        # Send signal to client to start PSI protocol
+        self.client.sendall(createMessage("signal", f"psi_start:{json.dumps(psi_params)}", False))
+        
+        # Wait for client's response with CID
+        response = decodeMessage(self.client.recv(1024))
+        
+        if response["type"] == "info":
+            self.client.sendall(createMessage("info", response["data"] + "\n\nShare this CID with your PSI partner and continue with Option 11.", False))
+        else:
+            self.client.sendall(createMessage("info", "Failed to start PSI protocol", False))
+    
+    def option11(self):
+        """
+        Continue PSI protocol by exchanging CIDs
+        """
+        # Ask which step to continue
+        self.client.sendall(createMessage("info", "Enter PSI step number (2, 3, or 4):", True))
+        step_str = decodeMessage(self.client.recv(1024))["data"]
+        
+        try:
+            step = int(step_str)
+            if step not in [2, 3, 4]:
+                raise ValueError("Step must be 2, 3, or 4")
+        except ValueError:
+            self.client.sendall(createMessage("info", "Invalid step number. Please enter 2, 3, or 4.", False))
+            return
+        
+        # Ask for partner's CID
+        self.client.sendall(createMessage("info", f"Enter your partner's CID for step {step-1}:", True))
+        partner_cid = decodeMessage(self.client.recv(1024))["data"]
+        
+        # Send signal to client to continue PSI protocol
+        signal_type = f"psi_step{step}:{partner_cid}"
+        self.client.sendall(createMessage("signal", signal_type, False))
+        
+        # Wait for client's response
+        response = decodeMessage(self.client.recv(1024))
+        
+        if response["type"] == "info":
+            if step < 4:
+                self.client.sendall(createMessage("info", response["data"] + "\n\nShare this CID with your PSI partner and continue with Option 11 for the next step.", False))
+            else:
+                self.client.sendall(createMessage("info", response["data"] + "\n\nPSI protocol completed successfully!", False))
+        else:
+            self.client.sendall(createMessage("info", f"Failed to execute PSI step {step}", False))
+
     def __del__(self):
         # No need to close the database connection anymore
         pass

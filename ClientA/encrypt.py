@@ -5,6 +5,16 @@ import sympy
 import os
 import sys
 
+def load_key():
+    if os.path.exists("key.txt"):
+        with open("key.txt", "r") as key_file:
+            return int(key_file.read().strip())
+    else:
+        with open("key.txt", "w") as key_file:
+            key = generate_private_key(prime)
+            key_file.write(str(key))
+            return key
+
 def generate_private_key(prime):
     """Generate a random private key for encryption"""
     key = random.randint(2, prime-2)
@@ -55,6 +65,7 @@ def encrypt(input_filename, prime=None):
         
         # Generate encryption key
         key = generate_private_key(prime)
+
         
         # Encrypt the p_id column
         df_encrypted["p_id"] = df["p_id"].astype(str).apply(

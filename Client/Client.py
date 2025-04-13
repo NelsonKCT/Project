@@ -3,6 +3,8 @@ import json
 import os
 import importlib.util
 import subprocess
+import tempfile
+import time
 
 def main():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -12,6 +14,9 @@ def main():
     except ConnectionRefusedError:
         print("Connection failed. Is the server running?")
         return
+    
+    # Dictionary to store PSI context between steps
+    psi_context = {}
     
     try:
         while True:
@@ -145,6 +150,154 @@ def main():
                         error_msg = f"Failed to record partner CID in local database: {str(e)}"
                         response = createMessage("info", error_msg, False)
                         client.send(json.dumps(response).encode())
+                elif parsed_data['data'].startswith("psi_start:"):
+                    try:
+                        # Extract PSI parameters 
+                        psi_params = json.loads(parsed_data['data'].split(":", 1)[1])
+                        
+                        # Import the PSI module
+                        current_dir = os.path.dirname(os.path.abspath(__file__))
+                        psi_module_path = os.path.join(current_dir, "psi_dh.py")
+                        spec = importlib.util.spec_from_file_location("psi_dh", psi_module_path)
+                        psi_module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(psi_module)
+                        
+                        # Create output directory for PSI files
+                        output_dir = os.path.join(current_dir, "psi_output")
+                        os.makedirs(output_dir, exist_ok=True)
+                        
+                        # Execute PSI step 1
+                        excel_path = psi_params["excel_path"]
+                        id_columns = psi_params["id_columns"]
+                        private_key = psi_params["private_key"]
+                        prime = psi_params["prime"]
+                        
+                        result = psi_module.run_psi_protocol(
+                            excel_path=excel_path,
+                            id_columns=id_columns,
+                            data_columns=psi_params.get("data_columns", []),
+                            private_key=private_key,
+                            prime=prime,
+                            output_dir=output_dir,
+                            step=1
+                        )
+                        
+                        # Store context for later steps
+                        psi_context["excel_path"] = excel_path
+                        psi_context["id_columns"] = id_columns
+                        psi_context["data_columns"] = psi_params.get("data_columns", [])
+                        psi_context["private_key"] = private_key
+                        psi_context["prime"] = prime
+                        psi_context["output_dir"] = output_dir
+                        
+                        # Return CID to the server
+                        cid = result["step1"]["cid_c"]
+                        response = createMessage("info", f"PSI Step 1 completed. CID: {cid}", False)
+                        client.send(json.dumps(response).encode())
+                        
+                    except Exception as e:
+                        error_msg = f"Failed to execute PSI step 1: {str(e)}"
+                        response = createMessage("info", error_msg, False)
+                        client.send(json.dumps(response).encode())
+                elif parsed_data['data'].startswith("psi_step2:"):
+                    try:
+                        # Extract partner's CID
+                        partner_cid = parsed_data['data'].split(":", 1)[1]
+                        
+                        # Import the PSI module
+                        current_dir = os.path.dirname(os.path.abspath(__file__))
+                        psi_module_path = os.path.join(current_dir, "psi_dh.py")
+                        spec = importlib.util.spec_from_file_location("psi_dh", psi_module_path)
+                        psi_module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(psi_module)
+                        
+                        # Execute PSI step 2
+                        result = psi_module.run_psi_protocol(
+                            excel_path=psi_context["excel_path"],
+                            id_columns=psi_context["id_columns"],
+                            data_columns=psi_context["data_columns"],
+                            private_key=psi_context["private_key"],
+                            prime=psi_context["prime"],
+                            output_dir=psi_context["output_dir"],
+                            partner_cid_c=partner_cid,
+                            step=2
+                        )
+                        
+                        # Return CID to the server
+                        cid = result["step2"]["cid_k"]
+                        response = createMessage("info", f"PSI Step 2 completed. CID: {cid}", False)
+                        client.send(json.dumps(response).encode())
+                        
+                    except Exception as e:
+                        error_msg = f"Failed to execute PSI step 2: {str(e)}"
+                        response = createMessage("info", error_msg, False)
+                        client.send(json.dumps(response).encode())
+                elif parsed_data['data'].startswith("psi_step3:"):
+                    try:
+                        # Extract partner's CID
+                        partner_cid = parsed_data['data'].split(":", 1)[1]
+                        
+                        # Import the PSI module
+                        current_dir = os.path.dirname(os.path.abspath(__file__))
+                        psi_module_path = os.path.join(current_dir, "psi_dh.py")
+                        spec = importlib.util.spec_from_file_location("psi_dh", psi_module_path)
+                        psi_module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(psi_module)
+                        
+                        # Execute PSI step 3
+                        result = psi_module.run_psi_protocol(
+                            excel_path=psi_context["excel_path"],
+                            id_columns=psi_context["id_columns"],
+                            data_columns=psi_context["data_columns"],
+                            private_key=psi_context["private_key"],
+                            prime=psi_context["prime"],
+                            output_dir=psi_context["output_dir"],
+                            partner_cid_k=partner_cid,
+                            step=3
+                        )
+                        
+                        # Return CID to the server
+                        cid = result["step3"]["cid_match"]
+                        response = createMessage("info", f"PSI Step 3 completed. CID: {cid}", False)
+                        client.send(json.dumps(response).encode())
+                        
+                    except Exception as e:
+                        error_msg = f"Failed to execute PSI step 3: {str(e)}"
+                        response = createMessage("info", error_msg, False)
+                        client.send(json.dumps(response).encode())
+                elif parsed_data['data'].startswith("psi_step4:"):
+                    try:
+                        # Extract partner's CID
+                        partner_cid = parsed_data['data'].split(":", 1)[1]
+                        
+                        # Import the PSI module
+                        current_dir = os.path.dirname(os.path.abspath(__file__))
+                        psi_module_path = os.path.join(current_dir, "psi_dh.py")
+                        spec = importlib.util.spec_from_file_location("psi_dh", psi_module_path)
+                        psi_module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(psi_module)
+                        
+                        # Execute PSI step 4
+                        result = psi_module.run_psi_protocol(
+                            excel_path=psi_context["excel_path"],
+                            id_columns=psi_context["id_columns"],
+                            data_columns=psi_context["data_columns"],
+                            private_key=psi_context["private_key"],
+                            prime=psi_context["prime"],
+                            output_dir=psi_context["output_dir"],
+                            partner_cid_match=partner_cid,
+                            step=4
+                        )
+                        
+                        # Final result file path
+                        final_file_path = result["step4"]["final_file_path"]
+                        response = createMessage("info", f"PSI Protocol completed. Final result saved to: {final_file_path}", False)
+                        client.send(json.dumps(response).encode())
+                        
+                    except Exception as e:
+                        error_msg = f"Failed to execute PSI step 4: {str(e)}"
+                        response = createMessage("info", error_msg, False)
+                        client.send(json.dumps(response).encode())
                 else:
                     print(f"Received signal: {parsed_data['data']}")
             else:
@@ -163,4 +316,4 @@ def createMessage(type, payload, reply_flag):
     return message
 
 if __name__ == "__main__":
-    main()
+    main() 

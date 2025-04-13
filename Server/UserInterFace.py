@@ -20,7 +20,10 @@ class LoginUsers:
         " 6. Send CID\n",
         " 7. Upload to IPFS\n",
         " 8. Get Partner CID\n",
-        " 9. Download from IPFS"]
+        " 9. Download from IPFS\n",
+        "10. Start PSI Protocol (Step 1)\n",
+        "11. Continue PSI Protocol (Steps 2-4)\n",
+        " Q. Quit"]
         return "".join(strs)
     @staticmethod   
     def update_Online_LoginUsers(username:str,client:socket,isLogin:bool):
