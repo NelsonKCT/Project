@@ -211,14 +211,29 @@ def main():
                         psi_module = importlib.util.module_from_spec(spec)
                         spec.loader.exec_module(psi_module)
                         
+                        # Check if all required context exists
+                        if not all(k in psi_context for k in ["excel_path", "id_columns", "data_columns", "private_key", "prime", "output_dir"]):
+                            # Try to load from config file if available
+                            output_dir = os.path.join(current_dir, "psi_output")
+                            psi_config_file = os.path.join(output_dir, "psi_config.json")
+                            if os.path.exists(psi_config_file):
+                                with open(psi_config_file, 'r') as f:
+                                    config = json.load(f)
+                                    psi_context["excel_path"] = config.get("excel_path")
+                                    psi_context["id_columns"] = config.get("id_columns")
+                                    psi_context["data_columns"] = config.get("data_columns")
+                                    psi_context["private_key"] = config.get("private_key")
+                                    psi_context["prime"] = config.get("prime")
+                                    psi_context["output_dir"] = output_dir
+                        
                         # Execute PSI step 2
                         result = psi_module.run_psi_protocol(
-                            excel_path=psi_context["excel_path"],
-                            id_columns=psi_context["id_columns"],
-                            data_columns=psi_context["data_columns"],
-                            private_key=psi_context["private_key"],
-                            prime=psi_context["prime"],
-                            output_dir=psi_context["output_dir"],
+                            excel_path=psi_context.get("excel_path", ""),
+                            id_columns=psi_context.get("id_columns", []),
+                            data_columns=psi_context.get("data_columns", []),
+                            private_key=psi_context.get("private_key", 0),
+                            prime=psi_context.get("prime", 0),
+                            output_dir=psi_context.get("output_dir", output_dir),
                             partner_cid_c=partner_cid,
                             step=2
                         )
@@ -244,14 +259,29 @@ def main():
                         psi_module = importlib.util.module_from_spec(spec)
                         spec.loader.exec_module(psi_module)
                         
+                        # Check if all required context exists
+                        if not all(k in psi_context for k in ["excel_path", "id_columns", "data_columns", "private_key", "prime", "output_dir"]):
+                            # Try to load from config file if available
+                            output_dir = os.path.join(current_dir, "psi_output")
+                            psi_config_file = os.path.join(output_dir, "psi_config.json")
+                            if os.path.exists(psi_config_file):
+                                with open(psi_config_file, 'r') as f:
+                                    config = json.load(f)
+                                    psi_context["excel_path"] = config.get("excel_path")
+                                    psi_context["id_columns"] = config.get("id_columns")
+                                    psi_context["data_columns"] = config.get("data_columns")
+                                    psi_context["private_key"] = config.get("private_key")
+                                    psi_context["prime"] = config.get("prime")
+                                    psi_context["output_dir"] = output_dir
+                        
                         # Execute PSI step 3
                         result = psi_module.run_psi_protocol(
-                            excel_path=psi_context["excel_path"],
-                            id_columns=psi_context["id_columns"],
-                            data_columns=psi_context["data_columns"],
-                            private_key=psi_context["private_key"],
-                            prime=psi_context["prime"],
-                            output_dir=psi_context["output_dir"],
+                            excel_path=psi_context.get("excel_path", ""),
+                            id_columns=psi_context.get("id_columns", []),
+                            data_columns=psi_context.get("data_columns", []),
+                            private_key=psi_context.get("private_key", 0),
+                            prime=psi_context.get("prime", 0),
+                            output_dir=psi_context.get("output_dir", output_dir),
                             partner_cid_k=partner_cid,
                             step=3
                         )
@@ -277,14 +307,29 @@ def main():
                         psi_module = importlib.util.module_from_spec(spec)
                         spec.loader.exec_module(psi_module)
                         
+                        # Check if all required context exists
+                        if not all(k in psi_context for k in ["excel_path", "id_columns", "data_columns", "private_key", "prime", "output_dir"]):
+                            # Try to load from config file if available
+                            output_dir = os.path.join(current_dir, "psi_output")
+                            psi_config_file = os.path.join(output_dir, "psi_config.json")
+                            if os.path.exists(psi_config_file):
+                                with open(psi_config_file, 'r') as f:
+                                    config = json.load(f)
+                                    psi_context["excel_path"] = config.get("excel_path")
+                                    psi_context["id_columns"] = config.get("id_columns")
+                                    psi_context["data_columns"] = config.get("data_columns")
+                                    psi_context["private_key"] = config.get("private_key")
+                                    psi_context["prime"] = config.get("prime")
+                                    psi_context["output_dir"] = output_dir
+                        
                         # Execute PSI step 4
                         result = psi_module.run_psi_protocol(
-                            excel_path=psi_context["excel_path"],
-                            id_columns=psi_context["id_columns"],
-                            data_columns=psi_context["data_columns"],
-                            private_key=psi_context["private_key"],
-                            prime=psi_context["prime"],
-                            output_dir=psi_context["output_dir"],
+                            excel_path=psi_context.get("excel_path", ""),
+                            id_columns=psi_context.get("id_columns", []),
+                            data_columns=psi_context.get("data_columns", []),
+                            private_key=psi_context.get("private_key", 0),
+                            prime=psi_context.get("prime", 0),
+                            output_dir=psi_context.get("output_dir", output_dir),
                             partner_cid_match=partner_cid,
                             step=4
                         )
@@ -316,4 +361,4 @@ def createMessage(type, payload, reply_flag):
     return message
 
 if __name__ == "__main__":
-    main() 
+    main()

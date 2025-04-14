@@ -1,120 +1,82 @@
-import os
-import sys
-import time
-import json
-import socket
-import requests
 import subprocess
+import os
+import json
+import time
 
-def create_ipfs_network():
+def upload_file_to_ipfs(file_path):
     """
-    Check if IPFS is installed and running, start it if needed
-    
-    Returns:
-        success: Boolean indicating if IPFS is running
+    Upload a file to IPFS and return the CID
     """
-    try:
-        # Check if IPFS is running
-        result = subprocess.run(['ipfs', 'swarm', 'peers'], capture_output=True, text=True) 
-        if result.returncode == 0:
-            print("IPFS daemon is already running")
-            return True
-        
-        print("IPFS daemon is not running, attempting to start...")
-        try:
-            # Start IPFS daemon in background
-            os.system('ipfs daemon &')
-            print("IPFS daemon started")
-            # Give daemon time to start
-            time.sleep(3)
-            return True
-        except Exception as e:
-            print(f"Failed to start IPFS daemon: {e}")
-            print("Please install IPFS and start the daemon manually:")
-            print("1. Install IPFS from https://docs.ipfs.io/install/")
-            print("2. Initialize IPFS with 'ipfs init'")
-            print("3. Start the daemon with 'ipfs daemon'")
-            return False
-    except Exception as e:
-        print(f"Error checking IPFS status: {e}")
-        return False
-
-
-def upload_directory_to_ipfs(directory_path):
-    """
-    Upload an entire directory to IPFS and return its CID
-    
-    Args:
-        directory_path (str): Path to the directory to upload
-        
-    Returns:
-        str: CID of the uploaded directory or None if upload failed
-    """
-    if not os.path.exists(directory_path):
-        print(f"Error: Directory '{directory_path}' not found")
-        return None
-    
-    if not os.path.isdir(directory_path):
-        print(f"Error: '{directory_path}' is not a directory")
-        return None
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
     
     try:
-        # Use subprocess to call IPFS directly for directory upload
+        # Run IPFS add command
         result = subprocess.run(
-            ['ipfs', 'add', '-r', '-Q', directory_path], 
-            capture_output=True, 
+            ["ipfs", "add", "-q", file_path],
+            capture_output=True,
             text=True
         )
         
-        if result.returncode == 0:
-            cid = result.stdout.strip()
-            print(f"Directory uploaded to IPFS with CID: {cid}")
-            return cid
-        else:
-            print(f"Error uploading directory to IPFS: {result.stderr}")
-            return None
+        if result.returncode != 0:
+            raise RuntimeError(f"IPFS add command failed: {result.stderr}")
+        
+        # Extract CID from output
+        cid = result.stdout.strip()
+        return cid
     
     except Exception as e:
-        print(f"Error uploading directory to IPFS: {e}")
-        return None
+        raise RuntimeError(f"Failed to upload file to IPFS: {str(e)}")
 
 def upload_encrypted_data_to_ipfs():
     """
-    Upload the Encrypted_Data directory to IPFS and return the CID
-    
-    Returns:
-        str: CID of the uploaded directory or None if upload failed
+    Upload encrypted data from the default location to IPFS
     """
-    print("IPFS Upload Tool")
-    print("===============")
+    # Define the path to the encrypted data directory
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    encrypted_dir = os.path.join(current_dir, "encrypted_data")
     
-    # Check IPFS setup
-    if not create_ipfs_network():
-        print("Failed to set up IPFS network. Exiting.")
-        return None
+    if not os.path.exists(encrypted_dir):
+        os.makedirs(encrypted_dir, exist_ok=True)
+        raise FileNotFoundError(f"Encrypted data directory not found: {encrypted_dir}")
     
-    # Default to uploading the Encrypted_Data directory
-    encrypted_data_dir = "Encrypted_Data"
+    # Find the most recent file in the encrypted_data directory
+    files = os.listdir(encrypted_dir)
+    if not files:
+        raise FileNotFoundError("No encrypted files found")
     
-    # Check if directory exists
-    if not os.path.exists(encrypted_data_dir):
-        print(f"Error: '{encrypted_data_dir}' directory not found.")
-        print("Please run the encryption process first.")
-        return None
+    # Sort files by modification time (newest first)
+    encrypted_files = [os.path.join(encrypted_dir, f) for f in files 
+                   if os.path.isfile(os.path.join(encrypted_dir, f)) and f.endswith(".enc")]
     
-    # Upload directory to IPFS
-    print(f"Uploading the entire '{encrypted_data_dir}' folder to IPFS...")
-    cid = upload_directory_to_ipfs(encrypted_data_dir)
+    if not encrypted_files:
+        raise FileNotFoundError("No .enc encrypted files found")
     
-    if not cid:
-        print("IPFS upload failed. Exiting.")
-        return None
+    encrypted_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+    latest_file = encrypted_files[0]
+    
+    # Upload the latest file to IPFS
+    try:
+        print(f"Uploading file: {latest_file}")
+        cid = upload_file_to_ipfs(latest_file)
         
-    return cid
-
-# For backward compatibility, keep main() but make it call the new function
-def main():
-    return upload_encrypted_data_to_ipfs()
+        # Save the CID to a file for reference
+        cid_file = os.path.join(current_dir, "last_upload_cid.txt")
+        with open(cid_file, "w") as f:
+            f.write(cid)
+        
+        return cid
+    
+    except Exception as e:
+        print(f"Error uploading encrypted data: {str(e)}")
+        return None
 
 if __name__ == "__main__":
-    main() 
+    try:
+        cid = upload_encrypted_data_to_ipfs()
+        if cid:
+            print(f"Successfully uploaded encrypted data. CID: {cid}")
+        else:
+            print("Failed to upload encrypted data.")
+    except Exception as e:
+        print(f"Error: {str(e)}") 

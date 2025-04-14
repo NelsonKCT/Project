@@ -1,4 +1,4 @@
-Requirement Document: Private Set Intersection using Diffie-Hellman
+# Requirement Document: Private Set Intersection using Diffie-Hellman
 1. 簡介與目標 (Introduction & Goal)
 
 本文件旨在定義一個使用 Diffie-Hellman 原理實現的隱私集合交集 (Private Set Intersection, PSI) 協議的功能需求。此協議將在 project 專案的客戶端 (Client A 和 Client B) 上實現，專案中的ClientA/與ClientB是用來模擬在兩台不同電腦上執行的客戶端，除了儲存的資料以外，程式碼的部分應該要相同，因此程式的邏輯需要讓ClientA/與ClientB/與Server/即使在三台不同電腦上也可以正常運作。協議的目標是讓兩個客戶端能夠找出他們各自 Excel 資料集之間的交集記錄，並安全地合併與這些交集記錄相關的原始附加數據，同時最大程度地保護非交集數據的隱私。數據交換將利用 IPFS 進行。這項功能的呼叫可以讓Client在自身UserInterFace上輸入指令，從UserSession呼叫Client端的程式。
