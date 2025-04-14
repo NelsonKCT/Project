@@ -46,7 +46,7 @@ def compute_record_hash(record: pd.Series, id_columns: List[str]) -> int:
     hash_obj = hashlib.sha256(id_string.encode())
     hash_hex = hash_obj.hexdigest()
     
-    # Convert to integer (using last 16 bytes to avoid overflows)
+    # Convert to integer
     hash_int = int(hash_hex, 16)
     return hash_int
 
@@ -375,8 +375,9 @@ def run_psi_step3(
             for h, our_c in h_to_c_map.items():
                 # If we found the hash that maps to this partner c and k value
                 # then update the h_to_k_map
-                h_to_k_map[h] = k
-                k_to_h_map[k] = h
+                if our_c == partner_c:  # 關鍵判斷
+                    h_to_k_map[h] = k
+                    k_to_h_map[k] = h
     
     print(f"Updated {len(k_to_h_map)} hash mappings based on intersection")
     

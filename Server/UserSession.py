@@ -8,7 +8,7 @@ import os
 import json
 import sys
 import importlib.util
-
+import random
 class UserSession:
     def __init__(self, client, username):
         self.client = client
@@ -284,6 +284,9 @@ class UserSession:
         except ValueError:
             self.client.sendall(createMessage("info", "Invalid prime number. Please enter an integer.", False))
             return
+        
+        # Generate private key (待修改)
+        private_key = random.randint(2, prime-2)
         
         # Create PSI parameters
         psi_params = {
