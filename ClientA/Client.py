@@ -361,4 +361,4 @@ def createMessage(type, payload, reply_flag):
     return message
 
 if __name__ == "__main__":
-    main()
+    main() 

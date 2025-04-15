@@ -30,7 +30,8 @@ class HandleClient:
                 else:
                     self.client.sendall(createMessage("info", "invalid Input", False))
                     continue
-        except ConnectionResetError:
+        except ConnectionError:
+            self.client.close()
             print(f"Client{self.addr} Disconnected")
     def Login(self):
         self.client.sendall(createMessage("info","Username:",True))
