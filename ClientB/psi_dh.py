@@ -304,94 +304,61 @@ def run_psi_step3(
     data_columns: List[str],
     output_dir: str
 ) -> str:
-    """
-    Run step 3 of the PSI protocol:
-    - Load partner's double-blinded values
-    - Find intersection
-    - Extract matching records
-    - Save matching records to file
-    - Return file path
-    """
-    # Load our mapping from partner c to our double-blinded k values
+    # 載入我們的 partner_c 到 k 的映射
     partner_c_to_k_file = os.path.join(output_dir, "partner_c_to_k.json")
     if os.path.exists(partner_c_to_k_file):
         with open(partner_c_to_k_file, 'r') as f:
-            # Convert string keys back to integers for consistency
             partner_c_to_k_str = json.load(f)
             partner_c_to_k = {int(c): k for c, k in partner_c_to_k_str.items()}
-        print(f"Loaded {len(partner_c_to_k)} partner c->k mappings")
+        print(f"載入了 {len(partner_c_to_k)} 個 partner c->k 映射")
     else:
-        print("WARNING: partner_c_to_k.json not found, using empty mapping")
         partner_c_to_k = {}
-    
-    # Make sure h_to_c_map is loaded
-    if not h_to_c_map:
-        h_to_c_map_file = os.path.join(output_dir, "h_to_c_map.json")
-        if os.path.exists(h_to_c_map_file):
-            with open(h_to_c_map_file, 'r') as f:
-                h_to_c_map_data = json.load(f)
-                # Convert string keys back to integers
-                h_to_c_map = {int(k): v for k, v in h_to_c_map_data.items()}
-            print(f"Loaded h_to_c_map with {len(h_to_c_map)} entries for step 3")
-        else:
-            print("ERROR: h_to_c_map file not found. Cannot proceed with step 3.")
-            return result
-    
-    # Load partner's k values (these are their h^(ab) values)
+
+    # 載入對方的 k 值
     partner_k_values = load_values_from_json(partner_k_file_path)
-    print(f"Loaded {len(partner_k_values)} partner double-blinded values")
-    
-    # Show a sample of partner k values
-    if partner_k_values:
-        print(f"Partner k values (sample): {partner_k_values[:3]}")
-    
-    # Our k values (the ones we calculated in step 2)
+    print(f"載入了 {len(partner_k_values)} 個對方雙盲值")
+
+    # 我們的 k 值
     our_k_values = list(partner_c_to_k.values())
-    print(f"We have {len(our_k_values)} double-blinded values")
-    
-    # Convert both sets to strings for comparison
-    our_k_str = set(str(k) for k in our_k_values)
-    partner_k_str = set(str(k) for k in partner_k_values)
-    
-    # Find intersection between our k values and partner's k values
-    intersection_str = our_k_str.intersection(partner_k_str)
-    print(f"String comparison found {len(intersection_str)} matching values")
-    
-    # Convert back to integers for processing
-    intersection_keys = set(int(k_str) for k_str in intersection_str)
-    print(f"Found {len(intersection_keys)} values in intersection")
-    
-    # Now we need to update our h_to_k_map with the actual k values 
-    # that matched with partner's k values
-    # This is necessary because we initially set h_to_k_map[h] = None in step 2
-    
-    # Create a reverse mapping from k to h using partner_c_to_k
-    k_to_h_map = {}
-    for partner_c, k in partner_c_to_k.items():
-        k_str = str(k)
-        if k_str in intersection_str:
-            # For each match, find which of our hashes produced this k value
-            # We need to search through all our hashes
-            for h, our_c in h_to_c_map.items():
-                # If we found the hash that maps to this partner c and k value
-                # then update the h_to_k_map
-                if our_c == partner_c:  # 關鍵判斷
-                    h_to_k_map[h] = k
-                    k_to_h_map[k] = h
-    
-    print(f"Updated {len(k_to_h_map)} hash mappings based on intersection")
-    
-    # Extract matching records using the updated h_to_k_map and k_to_h_map
-    match_df = extract_matching_records_fixed(
-        intersection_keys, k_to_h_map, h_to_record_map, data_columns
-    )
-    print(f"Extracted DataFrame with {len(match_df)} records and columns: {match_df.columns.tolist()}")
-    
-    # Save to file
+    print(f"我們有 {len(our_k_values)} 個雙盲值")
+
+    # 計算交集
+    intersection_keys = set(our_k_values).intersection(set(partner_k_values))
+    print(f"找到了 {len(intersection_keys)} 個交集值")
+
+    # 獲取 h 的有序列表，假設其順序與 c_values 一致
+    h_list = list(h_to_c_map.keys())  # 按插入順序
+
+    # 檢查 partner_k_values 的長度是否與 h_list 匹配
+    if len(partner_k_values) != len(h_list):
+        raise ValueError(f"partner_k_values 長度 ({len(partner_k_values)}) 與 h_list 長度 ({len(h_list)}) 不匹配")
+
+    # 根據 partner_k_values 的順序映射回 h
+    match_records = []
+    for i, k in enumerate(partner_k_values):
+        if k in intersection_keys:
+            h = h_list[i]
+            record = h_to_record_map[h]
+            # 提取所需欄位
+            record_data = {'hash_id': h}
+            for col in data_columns:
+                if col in record:
+                    record_data[col] = record[col]
+            match_records.append(record_data)
+
+    # 創建 DataFrame
+    if match_records:
+        match_df = pd.DataFrame(match_records)
+        print(f"創建了包含 {len(match_df)} 條記錄的 DataFrame")
+    else:
+        print("警告：未找到匹配記錄")
+        match_df = pd.DataFrame(columns=['hash_id'] + data_columns)
+
+    # 保存到檔案
     match_file_path = os.path.join(output_dir, "match_data.xlsx")
     match_df.to_excel(match_file_path, index=False)
-    print(f"Saved match data to {match_file_path}")
-    
+    print(f"匹配資料已保存至 {match_file_path}")
+
     return match_file_path
 
 def extract_matching_records_fixed(
