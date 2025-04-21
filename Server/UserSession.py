@@ -387,7 +387,8 @@ class UserSession:
             else:
                 self.client.sendall(createMessage("info", "Failed to handle CID exchange.", False))
         else:
-            self.client.sendall(createMessage("info", f"Failed to execute PSI step {step}: {response['data']}", False))
+            if step != 4:
+                self.client.sendall(createMessage("info", f"Failed to execute PSI step {step}: {response['data']}", False))
 
     def __del__(self):
         pass
