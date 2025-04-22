@@ -44,6 +44,8 @@ class UserSession:
         self.client = client
         self.username = username
         self.mergeDB = MergeRequest()
+        self.last_request_id = None  # Store the last used request ID
+        self.last_psi_step = 1  # Start with step 1
 
     def run(self):
         while True:
@@ -272,6 +274,11 @@ class UserSession:
         self.client.sendall(createMessage("info", "Enter RequestID for PSI protocol:", True))
         requestID = decodeMessage(self.client.recv(1024))["data"]
         
+        # Store the requestID for future use
+        self.last_request_id = requestID
+        # Reset step to 1 when starting a new protocol
+        self.last_psi_step = 1
+        
         try:
             data = self.mergeDB.getRequest(requestID)
             user1_id, user2_id, user1_confirm, user2_confirm = data[1:5]
@@ -326,6 +333,8 @@ class UserSession:
             # Handle CID exchange
             if self.handle_psi_cid_exchange(requestID, cid, 1):
                 self.client.sendall(createMessage("info", f"PSI Step 1 completed. CID: {cid}\nWaiting for partner's CID to proceed to Step 2.", False))
+                # Increment step for next operation
+                self.last_psi_step = 2
             else:
                 self.client.sendall(createMessage("info", "Failed to handle CID exchange.", False))
         else:
@@ -335,9 +344,18 @@ class UserSession:
         """
         Continue PSI protocol by exchanging CIDs
         """
-        # Ask for RequestID
-        self.client.sendall(createMessage("info", "Enter RequestID for PSI protocol:", True))
-        requestID = decodeMessage(self.client.recv(1024))["data"]
+        # If we have a previous request ID, offer it as default
+        if self.last_request_id:
+            self.client.sendall(createMessage("info", f"Enter RequestID for PSI protocol (press Enter to use last ID: {self.last_request_id}):", True))
+            input_id = decodeMessage(self.client.recv(1024))["data"]
+            requestID = self.last_request_id if input_id.strip() == "" else input_id
+            # Update the stored request ID
+            self.last_request_id = requestID
+        else:
+            # Ask for RequestID as usual
+            self.client.sendall(createMessage("info", "Enter RequestID for PSI protocol:", True))
+            requestID = decodeMessage(self.client.recv(1024))["data"]
+            self.last_request_id = requestID
         
         try:
             data = self.mergeDB.getRequest(requestID)
@@ -352,12 +370,13 @@ class UserSession:
             self.client.sendall(createMessage("info", f"Error: {e}", False))
             return
         
-        # Ask which step to continue
-        self.client.sendall(createMessage("info", "Enter PSI step number (2, 3, or 4):", True))
+        # Provide the next step number as default
+        next_step = min(self.last_psi_step, 4)
+        self.client.sendall(createMessage("info", f"Enter PSI step number (2, 3, or 4) (press Enter for step {next_step}):", True))
         step_str = decodeMessage(self.client.recv(1024))["data"]
         
         try:
-            step = int(step_str)
+            step = next_step if step_str.strip() == "" else int(step_str)
             if step not in [2, 3, 4]:
                 raise ValueError("Step must be 2, 3, or 4")
         except ValueError:
@@ -397,8 +416,12 @@ class UserSession:
             if self.handle_psi_cid_exchange(requestID, cid, step):
                 if step < 4:
                     self.client.sendall(createMessage("info", f"PSI Step {step} completed. CID: {cid}\nWaiting for partner's CID to proceed to Step {step+1}.", False))
+                    # Increment step for next operation
+                    self.last_psi_step = step + 1
                 else:
                     self.client.sendall(createMessage("info", f"PSI Step {step} completed. Final result saved: {response['data'].split('saved to: ')[1]}", False))
+                    # Reset step after completing the protocol
+                    self.last_psi_step = 1
             else:
                 self.client.sendall(createMessage("info", "Failed to handle CID exchange.", False))
         else:
