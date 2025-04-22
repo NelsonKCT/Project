@@ -66,16 +66,8 @@ class UserSession:
             elif option == '5':
                 self.option5()
             elif option == '6':
-                self.option6()
-            elif option == '7':
-                self.option7()
-            elif option == '8':
-                self.option8()
-            elif option == '9':
-                self.option9()
-            elif option == '10':
                 self.option10()
-            elif option == '11':
+            elif option == '7':
                 self.option11()
             elif option == 'Q':
                 LoginUsers.update_Online_LoginUsers(self.username, self.client, False)
@@ -137,6 +129,10 @@ class UserSession:
         client2.sendall(createMessage("signal", f"{requestID}", False))
 
     def option6(self):
+        """
+        [UNUSED] This method is kept for reference but no longer used in the UI.
+        Original function: Send CID
+        """
         self.client.sendall(createMessage("info", "RequestsID", True))
         requestID = decodeMessage(self.client.recv(1024))["data"]
         self.client.sendall(createMessage("info", "CID", True))
@@ -158,6 +154,10 @@ class UserSession:
             self.client.sendall(createMessage("info", f"{e}", False))
 
     def option7(self):
+        """
+        [UNUSED] This method is kept for reference but no longer used in the UI.
+        Original function: Upload to IPFS
+        """
         self.client.sendall(createMessage("signal", "upload_to_ipfs", False))
         response = decodeMessage(self.client.recv(1024))
         if response["type"] == "info":
@@ -166,6 +166,10 @@ class UserSession:
             self.client.sendall(createMessage("info", "Failed to get CID from client", False))
 
     def option8(self):
+        """
+        [UNUSED] This method is kept for reference but no longer used in the UI.
+        Original function: Get Partner CID
+        """
         self.client.sendall(createMessage("info", "Enter RequestID to get partner's CID:", True))
         requestID = decodeMessage(self.client.recv(1024))["data"]
         
@@ -203,6 +207,10 @@ class UserSession:
             self.client.sendall(createMessage("info", f"Unexpected error: {e}", False))
 
     def option9(self):
+        """
+        [UNUSED] This method is kept for reference but no longer used in the UI.
+        Original function: Download from IPFS
+        """
         self.client.sendall(createMessage("info", "Enter the CID to download from IPFS:", True))
         cid = decodeMessage(self.client.recv(1024))["data"]
         if not cid:
@@ -268,7 +276,8 @@ class UserSession:
 
     def option10(self):
         """
-        Start PSI protocol - Step 1: Initialize and compute first blinded values
+        Menu Option 6: Start PSI protocol - Step 1
+        Initialize and compute first blinded values
         """
         # Ask for RequestID
         self.client.sendall(createMessage("info", "Enter RequestID for PSI protocol:", True))
@@ -342,7 +351,8 @@ class UserSession:
 
     def option11(self):
         """
-        Continue PSI protocol by exchanging CIDs
+        Menu Option 7: Continue PSI protocol - Steps 2-4
+        Exchange CIDs and proceed through remaining steps
         """
         # If we have a previous request ID, offer it as default
         if self.last_request_id:
