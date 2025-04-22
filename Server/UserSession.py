@@ -9,12 +9,43 @@ import json
 import sys
 import importlib.util
 import random
+import sympy
+
+def generate_deterministic_prime(request_id):
+    """
+    Generate a deterministic prime number from a request ID.
+    
+    Args:
+        request_id (str): The request ID to use as a seed
+    
+    Returns:
+        int: A large prime number derived from the request ID
+    """
+    # Use the request_id as a seed for the random generator
+    # This ensures that the same request_id always produces the same prime
+    seed = int(hashlib.sha256(request_id.encode()).hexdigest(), 16)
+    random.seed(seed)
+    
+    # Generate a random number in the range 2^511 to 2^512 - 1
+    lower_bound = 2**511
+    upper_bound = 2**512 - 1
+    candidate = random.randint(lower_bound, upper_bound)
+    
+    # Find the next prime after the candidate
+    prime = sympy.nextprime(candidate)
+    
+    # Reset the random seed to ensure it doesn't affect other operations
+    random.seed()
+    
+    return prime
 
 class UserSession:
     def __init__(self, client, username):
         self.client = client
         self.username = username
         self.mergeDB = MergeRequest()
+        self.last_request_id = None  # Store the last used request ID
+        self.last_psi_step = 1  # Start with step 1
 
     def run(self):
         while True:
@@ -35,17 +66,7 @@ class UserSession:
             elif option == '5':
                 self.option5()
             elif option == '6':
-                self.option6()
-            elif option == '7':
-                self.option7()
-            elif option == '8':
-                self.option8()
-            elif option == '9':
-                self.option9()
-            elif option == '10':
-                self.option10()
-            elif option == '11':
-                self.option11()
+                self.psi_protocol()
             elif option == 'Q':
                 LoginUsers.update_Online_LoginUsers(self.username, self.client, False)
                 self.client.sendall(createMessage("info", "Logging out...", False))
@@ -106,6 +127,10 @@ class UserSession:
         client2.sendall(createMessage("signal", f"{requestID}", False))
 
     def option6(self):
+        """
+        [UNUSED] This method is kept for reference but no longer used in the UI.
+        Original function: Send CID
+        """
         self.client.sendall(createMessage("info", "RequestsID", True))
         requestID = decodeMessage(self.client.recv(1024))["data"]
         self.client.sendall(createMessage("info", "CID", True))
@@ -127,6 +152,10 @@ class UserSession:
             self.client.sendall(createMessage("info", f"{e}", False))
 
     def option7(self):
+        """
+        [UNUSED] This method is kept for reference but no longer used in the UI.
+        Original function: Upload to IPFS
+        """
         self.client.sendall(createMessage("signal", "upload_to_ipfs", False))
         response = decodeMessage(self.client.recv(1024))
         if response["type"] == "info":
@@ -135,6 +164,10 @@ class UserSession:
             self.client.sendall(createMessage("info", "Failed to get CID from client", False))
 
     def option8(self):
+        """
+        [UNUSED] This method is kept for reference but no longer used in the UI.
+        Original function: Get Partner CID
+        """
         self.client.sendall(createMessage("info", "Enter RequestID to get partner's CID:", True))
         requestID = decodeMessage(self.client.recv(1024))["data"]
         
@@ -172,6 +205,10 @@ class UserSession:
             self.client.sendall(createMessage("info", f"Unexpected error: {e}", False))
 
     def option9(self):
+        """
+        [UNUSED] This method is kept for reference but no longer used in the UI.
+        Original function: Download from IPFS
+        """
         self.client.sendall(createMessage("info", "Enter the CID to download from IPFS:", True))
         cid = decodeMessage(self.client.recv(1024))["data"]
         if not cid:
@@ -235,13 +272,47 @@ class UserSession:
             return False
         return True
 
-    def option10(self):
+    def psi_protocol(self):
         """
-        Start PSI protocol - Step 1: Initialize and compute first blinded values
+        Menu Option 6: PSI Protocol (Steps 1-4)
+        Handles all steps of the Private Set Intersection protocol
+        """
+        # Ask which step to run
+        if self.last_request_id:
+            next_step = min(self.last_psi_step, 4)
+            self.client.sendall(createMessage("info", f"Which PSI step do you want to run? (1-4) (press Enter for step {next_step}):", True))
+            step_str = decodeMessage(self.client.recv(1024))["data"]
+            step = next_step if step_str.strip() == "" else int(step_str)
+        else:
+            self.client.sendall(createMessage("info", "Which PSI step do you want to run? (1-4):", True))
+            step_str = decodeMessage(self.client.recv(1024))["data"]
+            try:
+                step = int(step_str)
+                if step < 1 or step > 4:
+                    raise ValueError("Step must be between 1 and 4")
+            except ValueError:
+                self.client.sendall(createMessage("info", "Invalid step number. Please enter a number between 1 and 4.", False))
+                return
+
+        # Run the appropriate step
+        if step == 1:
+            self.__run_psi_step1()
+        else:
+            self.__run_psi_step_continuation(step)
+
+    def __run_psi_step1(self):
+        """
+        Run PSI Protocol Step 1: Initialize and compute first blinded values
+        Internal method called by psi_protocol
         """
         # Ask for RequestID
         self.client.sendall(createMessage("info", "Enter RequestID for PSI protocol:", True))
         requestID = decodeMessage(self.client.recv(1024))["data"]
+        
+        # Store the requestID for future use
+        self.last_request_id = requestID
+        # Reset step to 1 when starting a new protocol
+        self.last_psi_step = 1
         
         try:
             data = self.mergeDB.getRequest(requestID)
@@ -270,25 +341,10 @@ class UserSession:
         data_columns_str = decodeMessage(self.client.recv(1024))["data"]
         data_columns = [col.strip() for col in data_columns_str.split(',')]
         
-        # Ask for private key
-        self.client.sendall(createMessage("info", "Enter your private key (integer):", True))
-        private_key_str = decodeMessage(self.client.recv(1024))["data"]
-        try:
-            private_key = int(private_key_str)
-        except ValueError:
-            self.client.sendall(createMessage("info", "Invalid private key. Please enter an integer.", False))
-            return
+        # Generate deterministic prime from requestID
+        prime = generate_deterministic_prime(requestID)
         
-        # Ask for shared prime
-        self.client.sendall(createMessage("info", "Enter the shared prime number:", True))
-        prime_str = decodeMessage(self.client.recv(1024))["data"]
-        try:
-            prime = int(prime_str)
-        except ValueError:
-            self.client.sendall(createMessage("info", "Invalid prime number. Please enter an integer.", False))
-            return
-        
-        # Generate private key (待修改)
+        # Generate private key from the prime
         private_key = random.randint(2, prime-2)
         
         # Create PSI parameters
@@ -297,7 +353,8 @@ class UserSession:
             "id_columns": id_columns,
             "data_columns": data_columns,
             "private_key": private_key,
-            "prime": prime
+            "prime": prime,
+            "request_id": requestID
         }
         
         # Send signal to client to start PSI protocol
@@ -311,18 +368,33 @@ class UserSession:
             # Handle CID exchange
             if self.handle_psi_cid_exchange(requestID, cid, 1):
                 self.client.sendall(createMessage("info", f"PSI Step 1 completed. CID: {cid}\nWaiting for partner's CID to proceed to Step 2.", False))
+                # Increment step for next operation
+                self.last_psi_step = 2
             else:
                 self.client.sendall(createMessage("info", "Failed to handle CID exchange.", False))
         else:
             self.client.sendall(createMessage("info", f"Failed to start PSI protocol: {response['data']}", False))
 
-    def option11(self):
+    def __run_psi_step_continuation(self, step):
         """
-        Continue PSI protocol by exchanging CIDs
+        Run PSI Protocol Steps 2-4: Continue the protocol with subsequent steps
+        Internal method called by psi_protocol
+        
+        Args:
+            step: Which step of the protocol to run (2-4)
         """
-        # Ask for RequestID
-        self.client.sendall(createMessage("info", "Enter RequestID for PSI protocol:", True))
-        requestID = decodeMessage(self.client.recv(1024))["data"]
+        # If we have a previous request ID, offer it as default
+        if self.last_request_id:
+            self.client.sendall(createMessage("info", f"Enter RequestID for PSI protocol (press Enter to use last ID: {self.last_request_id}):", True))
+            input_id = decodeMessage(self.client.recv(1024))["data"]
+            requestID = self.last_request_id if input_id.strip() == "" else input_id
+            # Update the stored request ID
+            self.last_request_id = requestID
+        else:
+            # Ask for RequestID as usual
+            self.client.sendall(createMessage("info", "Enter RequestID for PSI protocol:", True))
+            requestID = decodeMessage(self.client.recv(1024))["data"]
+            self.last_request_id = requestID
         
         try:
             data = self.mergeDB.getRequest(requestID)
@@ -335,18 +407,6 @@ class UserSession:
                 return
         except ValueError as e:
             self.client.sendall(createMessage("info", f"Error: {e}", False))
-            return
-        
-        # Ask which step to continue
-        self.client.sendall(createMessage("info", "Enter PSI step number (2, 3, or 4):", True))
-        step_str = decodeMessage(self.client.recv(1024))["data"]
-        
-        try:
-            step = int(step_str)
-            if step not in [2, 3, 4]:
-                raise ValueError("Step must be 2, 3, or 4")
-        except ValueError:
-            self.client.sendall(createMessage("info", "Invalid step number. Please enter 2, 3, or 4.", False))
             return
         
         # Check if partner has uploaded CID for previous step
@@ -382,8 +442,12 @@ class UserSession:
             if self.handle_psi_cid_exchange(requestID, cid, step):
                 if step < 4:
                     self.client.sendall(createMessage("info", f"PSI Step {step} completed. CID: {cid}\nWaiting for partner's CID to proceed to Step {step+1}.", False))
+                    # Increment step for next operation
+                    self.last_psi_step = step + 1
                 else:
                     self.client.sendall(createMessage("info", f"PSI Step {step} completed. Final result saved: {response['data'].split('saved to: ')[1]}", False))
+                    # Reset step after completing the protocol
+                    self.last_psi_step = 1
             else:
                 self.client.sendall(createMessage("info", "Failed to handle CID exchange.", False))
         else:

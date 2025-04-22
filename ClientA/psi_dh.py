@@ -40,7 +40,7 @@ def compute_record_hash(record: pd.Series, id_columns: List[str]) -> int:
     id_string = "||".join(id_values)
     
     # Print the ID string for debugging (only for first few records)
-    print(f"ID string: {id_string}")
+    # print(f"ID string: {id_string}")
     
     # Compute SHA-256 hash
     hash_obj = hashlib.sha256(id_string.encode())
@@ -80,20 +80,20 @@ def process_dataset(df: pd.DataFrame, id_columns: List[str], private_key: int, p
         record_count += 1
         debug_mode = record_count <= debug_limit
         
-        if debug_mode:
-            print(f"\nProcessing record {record_count}:")
+        # if debug_mode:
+        #     print(f"\nProcessing record {record_count}:")
         
         h = compute_record_hash(record, id_columns)
         c = compute_blinded_hash(h, private_key, prime)
         
-        if debug_mode:
-            print(f"Hash: {h}, Blinded hash: {c}")
+        # if debug_mode:
+        #     print(f"Hash: {h}, Blinded hash: {c}")
         
         h_to_c_map[h] = c
         h_to_record_map[h] = record
     
-    print(f"Processed {record_count} records")
-    print(f"Generated {len(h_to_c_map)} unique hashes")
+    # print(f"Processed {record_count} records")
+    # print(f"Generated {len(h_to_c_map)} unique hashes")
     
     # If the number of unique hashes is less than the number of records, there might be duplicates
     if len(h_to_c_map) < record_count:
@@ -142,7 +142,7 @@ def find_intersection(values_a: List[int], values_b: List[int]) -> Set[int]:
     set_a = set(values_a)
     set_b = set(values_b)
     intersection = set_a.intersection(set_b)
-    print(f"Found {len(intersection)} matching values in intersection")
+    # print(f"Found {len(intersection)} matching values in intersection")
     return intersection
 
 def extract_matching_records(
@@ -159,9 +159,9 @@ def extract_matching_records(
     
     # Extract matching records
     records = []
-    print(f"Processing {len(intersection_keys)} intersection keys")
-    print(f"Have {len(k_to_h_map)} keys in k_to_h_map")
-    print(f"Have {len(h_to_record_map)} keys in h_to_record_map")
+    # print(f"Processing {len(intersection_keys)} intersection keys")
+    # print(f"Have {len(k_to_h_map)} keys in k_to_h_map")
+    # print(f"Have {len(h_to_record_map)} keys in h_to_record_map")
     
     for k in intersection_keys:
         if k in k_to_h_map:
@@ -181,7 +181,7 @@ def extract_matching_records(
     
     # Create DataFrame
     if records:
-        print(f"Created DataFrame with {len(records)} records")
+        # print(f"Created DataFrame with {len(records)} records")
         return pd.DataFrame(records)
     else:
         # Return empty DataFrame with correct columns
@@ -237,20 +237,20 @@ def run_psi_step2(
     """
     # Load partner's blinded values
     partner_c_values = load_values_from_json(partner_c_file_path)
-    print(f"Loaded {len(partner_c_values)} partner blinded values")
+    # print(f"Loaded {len(partner_c_values)} partner blinded values")
     
     # Show a sample of partner's values for debugging
-    if partner_c_values:
-        print(f"Sample of partner blinded values: {partner_c_values[:3]}")
+    # if partner_c_values:
+    #     print(f"Sample of partner blinded values: {partner_c_values[:3]}")
     
     # Compute second blinded values k = c^private_key mod prime
     # These are the values we'll upload to IPFS for the partner to download
     k_values = compute_second_blinded_values(partner_c_values, private_key, prime)
-    print(f"Computed {len(k_values)} second blinded values")
+    # print(f"Computed {len(k_values)} second blinded values")
     
     # Show a sample of computed values for debugging
-    if k_values:
-        print(f"Sample of computed double-blinded values: {k_values[:3]}")
+    # if k_values:
+    #     print(f"Sample of computed double-blinded values: {k_values[:3]}")
     
     # Create h_to_k_map for matching in step 3
     # This maps our original hashes to the expected matching values (h^(ab) mod p)
@@ -292,7 +292,7 @@ def run_psi_step2(
     with open(partner_c_to_k_file, 'w') as f:
         json.dump(partner_c_to_k_str, f)
     
-    print(f"Calculated and saved {len(partner_c_to_k)} double-blind values for step 3")
+    # print(f"Calculated and saved {len(partner_c_to_k)} double-blind values for step 3")
     
     return h_to_k_map, k_file_path
 
@@ -310,21 +310,21 @@ def run_psi_step3(
         with open(partner_c_to_k_file, 'r') as f:
             partner_c_to_k_str = json.load(f)
             partner_c_to_k = {int(c): k for c, k in partner_c_to_k_str.items()}
-        print(f"載入了 {len(partner_c_to_k)} 個 partner c->k 映射")
+        # print(f"載入了 {len(partner_c_to_k)} 個 partner c->k 映射")
     else:
         partner_c_to_k = {}
 
     # 載入對方的 k 值
     partner_k_values = load_values_from_json(partner_k_file_path)
-    print(f"載入了 {len(partner_k_values)} 個對方雙盲值")
+    # print(f"載入了 {len(partner_k_values)} 個對方雙盲值")
 
     # 我們的 k 值
     our_k_values = list(partner_c_to_k.values())
-    print(f"我們有 {len(our_k_values)} 個雙盲值")
+    # print(f"我們有 {len(our_k_values)} 個雙盲值")
 
     # 計算交集
     intersection_keys = set(our_k_values).intersection(set(partner_k_values))
-    print(f"找到了 {len(intersection_keys)} 個交集值")
+    # print(f"找到了 {len(intersection_keys)} 個交集值")
 
     # 獲取 h 的有序列表，假設其順序與 c_values 一致
     h_list = list(h_to_c_map.keys())  # 按插入順序
@@ -349,15 +349,15 @@ def run_psi_step3(
     # 創建 DataFrame
     if match_records:
         match_df = pd.DataFrame(match_records)
-        print(f"創建了包含 {len(match_df)} 條記錄的 DataFrame")
+        # print(f"創建了包含 {len(match_df)} 條記錄的 DataFrame")
     else:
-        print("警告：未找到匹配記錄")
+        print("No matching records found")
         match_df = pd.DataFrame(columns=['hash_id'] + data_columns)
 
     # 保存到檔案
     match_file_path = os.path.join(output_dir, "match_data.xlsx")
     match_df.to_excel(match_file_path, index=False)
-    print(f"匹配資料已保存至 {match_file_path}")
+    # print(f"匹配資料已保存至 {match_file_path}")
 
     return match_file_path
 
@@ -393,7 +393,7 @@ def extract_matching_records_fixed(
     
     # Create DataFrame
     if records:
-        print(f"Created DataFrame with {len(records)} records")
+        # print(f"Created DataFrame with {len(records)} records")
         return pd.DataFrame(records)
     else:
         # Return empty DataFrame with correct columns
@@ -416,11 +416,11 @@ def run_psi_step4(
     """
     # Load our matching records
     our_match_df = pd.read_excel(our_match_file_path)
-    print(f"Loaded our match data with {len(our_match_df)} records")
+    # print(f"Loaded our match data with {len(our_match_df)} records")
     
     # Load partner's matching records
     partner_match_df = pd.read_excel(partner_match_file_path)
-    print(f"Loaded partner match data with {len(partner_match_df)} records")
+    # print(f"Loaded partner match data with {len(partner_match_df)} records")
     
     # Merge records
     if 'hash_id' in our_match_df.columns and 'hash_id' in partner_match_df.columns and len(our_match_df) > 0 and len(partner_match_df) > 0:
@@ -439,7 +439,7 @@ def run_psi_step4(
         
         # Perform inner join
         final_df = pd.merge(our_match_df, partner_match_df, on='hash_id', how='inner')
-        print(f"Merged data contains {len(final_df)} records")
+        # print(f"Merged data contains {len(final_df)} records")
     else:
         # If hash_id is missing or dataframes are empty, create an empty DataFrame
         print("Warning: Could not merge data - missing hash_id column or empty dataframes")
@@ -515,16 +515,32 @@ def run_psi_protocol(
     private_key: int,
     prime: int,
     output_dir: str,
+    request_id: str = "",
     partner_cid_c: str = None,
     partner_cid_k: str = None,
     partner_cid_match: str = None,
     step: int = 1
 ) -> Dict[str, Any]:
     """
-    Run the PSI protocol from a specified step
-    Returns a dictionary with results of the performed steps
+    Run the PSI protocol for a specific step
+    
+    Args:
+        excel_path: Path to the Excel file containing the data
+        id_columns: List of column names that form the identifier
+        data_columns: List of column names to include in the final result
+        private_key: Private key for the Diffie-Hellman PSI protocol
+        prime: Shared prime number for the protocol
+        output_dir: Directory to store output files
+        request_id: The unique identifier for the merge request
+        partner_cid_c: Partner's CID for c values (for step 2)
+        partner_cid_k: Partner's CID for k values (for step 3)
+        partner_cid_match: Partner's CID for match data (for step 4)
+        step: Which step of the protocol to run (1-4)
+        
+    Returns:
+        Dictionary with results from the executed step
     """
-    result = {}
+    result = {"request_id": request_id}
     
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
@@ -558,7 +574,8 @@ def run_psi_protocol(
                 "id_columns": id_columns,
                 "data_columns": data_columns,
                 "private_key": private_key,
-                "prime": prime
+                "prime": prime,
+                "request_id": result.get("request_id", "")
             }
             json.dump(config, f)
         
@@ -585,7 +602,7 @@ def run_psi_protocol(
                 # Convert string keys back to integers
                 h_to_c_map = {int(k): v for k, v in h_to_c_map_data.items()}
             
-            print(f"Loaded h_to_c_map with {len(h_to_c_map)} entries")
+            # print(f"Loaded h_to_c_map with {len(h_to_c_map)} entries")
             
             # Load configuration if excel_path is not provided
             if not excel_path and os.path.exists(psi_config_file):
@@ -652,7 +669,7 @@ def run_psi_protocol(
                     h_to_k_map_data = json.load(f)
                     # Convert string keys back to integers
                     h_to_k_map = {int(k): v for k, v in h_to_k_map_data.items()}
-                print(f"Loaded h_to_k_map with {len(h_to_k_map)} entries")
+                # print(f"Loaded h_to_k_map with {len(h_to_k_map)} entries")
             except Exception as e:
                 raise ValueError(f"Failed to load k map from previous steps: {str(e)}")
     
@@ -668,7 +685,7 @@ def run_psi_protocol(
                     h_to_c_map_data = json.load(f)
                     # Convert string keys back to integers
                     h_to_c_map = {int(k): v for k, v in h_to_c_map_data.items()}
-                print(f"Loaded h_to_c_map with {len(h_to_c_map)} entries for step 3")
+                # print(f"Loaded h_to_c_map with {len(h_to_c_map)} entries for step 3")
             else:
                 print("ERROR: h_to_c_map file not found. Cannot proceed with step 3.")
                 return result

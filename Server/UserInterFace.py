@@ -11,19 +11,22 @@ class LoginUsers:
     @staticmethod
     def getInitUI():
         strs = [
-        "Options:\n",
-        " 1. Check Online user\n",
-        " 2. Send Merge Request\n"
-        " 3. Check Merge Request\n",
-        " 4. Confirm Merge Request\n",
-        " 5. Start Merge Request\n",
-        " 6. Send CID\n",
-        " 7. Upload to IPFS\n",
-        " 8. Get Partner CID\n",
-        " 9. Download from IPFS\n",
-        "10. Start PSI Protocol (Step 1)\n",
-        "11. Continue PSI Protocol (Steps 2-4)\n",
-        " Q. Quit"]
+        "┌──────────────────────────────────────┐\n",
+        "│      Secure Data Matching System     │\n",
+        "└──────────────────────────────────────┘\n",
+        "\n",
+        "Available Actions:\n",
+        "1. View Online Users\n",
+        "2. Create Merge Request\n"
+        "3. View Pending Requests\n",
+        "4. Approve Merge Request\n",
+        "5. Initialize Merge Operation\n",
+        "6. Private Set Intersection Protocol\n",
+        "\n",
+        "Q. Logout\n",
+        "\n",
+        "Enter your selection: "
+        ]
         return "".join(strs)
     @staticmethod   
     def update_Online_LoginUsers(username:str,client:socket,isLogin:bool):
