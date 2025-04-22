@@ -17,8 +17,7 @@ class LoginUsers:
         " 3. Check Merge Request\n",
         " 4. Confirm Merge Request\n",
         " 5. Start Merge Request\n",
-        " 6. Start PSI Protocol (Step 1)\n",
-        " 7. Continue PSI Protocol (Steps 2-4)\n",
+        " 6. PSI Protocol (Steps 1-4)\n",
         " Q. Quit"]
         return "".join(strs)
     @staticmethod   

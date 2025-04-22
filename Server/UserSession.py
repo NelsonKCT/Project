@@ -66,9 +66,7 @@ class UserSession:
             elif option == '5':
                 self.option5()
             elif option == '6':
-                self.option10()
-            elif option == '7':
-                self.option11()
+                self.psi_protocol()
             elif option == 'Q':
                 LoginUsers.update_Online_LoginUsers(self.username, self.client, False)
                 self.client.sendall(createMessage("info", "Logging out...", False))
@@ -274,10 +272,38 @@ class UserSession:
             return False
         return True
 
-    def option10(self):
+    def psi_protocol(self):
         """
-        Menu Option 6: Start PSI protocol - Step 1
-        Initialize and compute first blinded values
+        Menu Option 6: PSI Protocol (Steps 1-4)
+        Handles all steps of the Private Set Intersection protocol
+        """
+        # Ask which step to run
+        if self.last_request_id:
+            next_step = min(self.last_psi_step, 4)
+            self.client.sendall(createMessage("info", f"Which PSI step do you want to run? (1-4) (press Enter for step {next_step}):", True))
+            step_str = decodeMessage(self.client.recv(1024))["data"]
+            step = next_step if step_str.strip() == "" else int(step_str)
+        else:
+            self.client.sendall(createMessage("info", "Which PSI step do you want to run? (1-4):", True))
+            step_str = decodeMessage(self.client.recv(1024))["data"]
+            try:
+                step = int(step_str)
+                if step < 1 or step > 4:
+                    raise ValueError("Step must be between 1 and 4")
+            except ValueError:
+                self.client.sendall(createMessage("info", "Invalid step number. Please enter a number between 1 and 4.", False))
+                return
+
+        # Run the appropriate step
+        if step == 1:
+            self.__run_psi_step1()
+        else:
+            self.__run_psi_step_continuation(step)
+
+    def __run_psi_step1(self):
+        """
+        Run PSI Protocol Step 1: Initialize and compute first blinded values
+        Internal method called by psi_protocol
         """
         # Ask for RequestID
         self.client.sendall(createMessage("info", "Enter RequestID for PSI protocol:", True))
@@ -349,10 +375,13 @@ class UserSession:
         else:
             self.client.sendall(createMessage("info", f"Failed to start PSI protocol: {response['data']}", False))
 
-    def option11(self):
+    def __run_psi_step_continuation(self, step):
         """
-        Menu Option 7: Continue PSI protocol - Steps 2-4
-        Exchange CIDs and proceed through remaining steps
+        Run PSI Protocol Steps 2-4: Continue the protocol with subsequent steps
+        Internal method called by psi_protocol
+        
+        Args:
+            step: Which step of the protocol to run (2-4)
         """
         # If we have a previous request ID, offer it as default
         if self.last_request_id:
@@ -378,19 +407,6 @@ class UserSession:
                 return
         except ValueError as e:
             self.client.sendall(createMessage("info", f"Error: {e}", False))
-            return
-        
-        # Provide the next step number as default
-        next_step = min(self.last_psi_step, 4)
-        self.client.sendall(createMessage("info", f"Enter PSI step number (2, 3, or 4) (press Enter for step {next_step}):", True))
-        step_str = decodeMessage(self.client.recv(1024))["data"]
-        
-        try:
-            step = next_step if step_str.strip() == "" else int(step_str)
-            if step not in [2, 3, 4]:
-                raise ValueError("Step must be 2, 3, or 4")
-        except ValueError:
-            self.client.sendall(createMessage("info", "Invalid step number. Please enter 2, 3, or 4.", False))
             return
         
         # Check if partner has uploaded CID for previous step
