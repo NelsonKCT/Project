@@ -515,16 +515,32 @@ def run_psi_protocol(
     private_key: int,
     prime: int,
     output_dir: str,
+    request_id: str = "",
     partner_cid_c: str = None,
     partner_cid_k: str = None,
     partner_cid_match: str = None,
     step: int = 1
 ) -> Dict[str, Any]:
     """
-    Run the PSI protocol from a specified step
-    Returns a dictionary with results of the performed steps
+    Run the PSI protocol for a specific step
+    
+    Args:
+        excel_path: Path to the Excel file containing the data
+        id_columns: List of column names that form the identifier
+        data_columns: List of column names to include in the final result
+        private_key: Private key for the Diffie-Hellman PSI protocol
+        prime: Shared prime number for the protocol
+        output_dir: Directory to store output files
+        request_id: The unique identifier for the merge request
+        partner_cid_c: Partner's CID for c values (for step 2)
+        partner_cid_k: Partner's CID for k values (for step 3)
+        partner_cid_match: Partner's CID for match data (for step 4)
+        step: Which step of the protocol to run (1-4)
+        
+    Returns:
+        Dictionary with results from the executed step
     """
-    result = {}
+    result = {"request_id": request_id}
     
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
@@ -558,7 +574,8 @@ def run_psi_protocol(
                 "id_columns": id_columns,
                 "data_columns": data_columns,
                 "private_key": private_key,
-                "prime": prime
+                "prime": prime,
+                "request_id": result.get("request_id", "")
             }
             json.dump(config, f)
         

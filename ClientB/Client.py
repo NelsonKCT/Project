@@ -5,6 +5,37 @@ import importlib.util
 import subprocess
 import tempfile
 import time
+import hashlib
+import random
+import sympy
+
+def generate_deterministic_prime(request_id):
+    """
+    Generate a deterministic prime number from a request ID.
+    
+    Args:
+        request_id (str): The request ID to use as a seed
+    
+    Returns:
+        int: A large prime number derived from the request ID
+    """
+    # Use the request_id as a seed for the random generator
+    # This ensures that the same request_id always produces the same prime
+    seed = int(hashlib.sha256(request_id.encode()).hexdigest(), 16)
+    random.seed(seed)
+    
+    # Generate a random number in the range 2^511 to 2^512 - 1
+    lower_bound = 2**511
+    upper_bound = 2**512 - 1
+    candidate = random.randint(lower_bound, upper_bound)
+    
+    # Find the next prime after the candidate
+    prime = sympy.nextprime(candidate)
+    
+    # Reset the random seed to ensure it doesn't affect other operations
+    random.seed()
+    
+    return prime
 
 def main():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -171,6 +202,7 @@ def main():
                         id_columns = psi_params["id_columns"]
                         private_key = psi_params["private_key"]
                         prime = psi_params["prime"]
+                        request_id = psi_params.get("request_id", "")
                         
                         result = psi_module.run_psi_protocol(
                             excel_path=excel_path,
@@ -179,6 +211,7 @@ def main():
                             private_key=private_key,
                             prime=prime,
                             output_dir=output_dir,
+                            request_id=request_id,
                             step=1
                         )
                         
@@ -189,6 +222,7 @@ def main():
                         psi_context["private_key"] = private_key
                         psi_context["prime"] = prime
                         psi_context["output_dir"] = output_dir
+                        psi_context["request_id"] = psi_params.get("request_id", "")
                         
                         # Return CID to the server
                         cid = result["step1"]["cid_c"]
@@ -223,7 +257,12 @@ def main():
                                     psi_context["id_columns"] = config.get("id_columns")
                                     psi_context["data_columns"] = config.get("data_columns")
                                     psi_context["private_key"] = config.get("private_key")
-                                    psi_context["prime"] = config.get("prime")
+                                    psi_context["request_id"] = config.get("request_id")
+                                    # If we have the request_id, regenerate the prime deterministically
+                                    if "request_id" in psi_context and psi_context["request_id"]:
+                                        psi_context["prime"] = generate_deterministic_prime(psi_context["request_id"])
+                                    else:
+                                        psi_context["prime"] = config.get("prime")
                                     psi_context["output_dir"] = output_dir
                         
                         # Execute PSI step 2
@@ -234,6 +273,7 @@ def main():
                             private_key=psi_context.get("private_key", 0),
                             prime=psi_context.get("prime", 0),
                             output_dir=psi_context.get("output_dir", output_dir),
+                            request_id=psi_context.get("request_id", ""),
                             partner_cid_c=partner_cid,
                             step=2
                         )
@@ -271,7 +311,12 @@ def main():
                                     psi_context["id_columns"] = config.get("id_columns")
                                     psi_context["data_columns"] = config.get("data_columns")
                                     psi_context["private_key"] = config.get("private_key")
-                                    psi_context["prime"] = config.get("prime")
+                                    psi_context["request_id"] = config.get("request_id")
+                                    # If we have the request_id, regenerate the prime deterministically
+                                    if "request_id" in psi_context and psi_context["request_id"]:
+                                        psi_context["prime"] = generate_deterministic_prime(psi_context["request_id"])
+                                    else:
+                                        psi_context["prime"] = config.get("prime")
                                     psi_context["output_dir"] = output_dir
                         
                         # Execute PSI step 3
@@ -282,6 +327,7 @@ def main():
                             private_key=psi_context.get("private_key", 0),
                             prime=psi_context.get("prime", 0),
                             output_dir=psi_context.get("output_dir", output_dir),
+                            request_id=psi_context.get("request_id", ""),
                             partner_cid_k=partner_cid,
                             step=3
                         )
@@ -319,7 +365,12 @@ def main():
                                     psi_context["id_columns"] = config.get("id_columns")
                                     psi_context["data_columns"] = config.get("data_columns")
                                     psi_context["private_key"] = config.get("private_key")
-                                    psi_context["prime"] = config.get("prime")
+                                    psi_context["request_id"] = config.get("request_id")
+                                    # If we have the request_id, regenerate the prime deterministically
+                                    if "request_id" in psi_context and psi_context["request_id"]:
+                                        psi_context["prime"] = generate_deterministic_prime(psi_context["request_id"])
+                                    else:
+                                        psi_context["prime"] = config.get("prime")
                                     psi_context["output_dir"] = output_dir
                         
                         # Execute PSI step 4
@@ -330,6 +381,7 @@ def main():
                             private_key=psi_context.get("private_key", 0),
                             prime=psi_context.get("prime", 0),
                             output_dir=psi_context.get("output_dir", output_dir),
+                            request_id=psi_context.get("request_id", ""),
                             partner_cid_match=partner_cid,
                             step=4
                         )

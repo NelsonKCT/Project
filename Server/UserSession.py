@@ -9,6 +9,35 @@ import json
 import sys
 import importlib.util
 import random
+import sympy
+
+def generate_deterministic_prime(request_id):
+    """
+    Generate a deterministic prime number from a request ID.
+    
+    Args:
+        request_id (str): The request ID to use as a seed
+    
+    Returns:
+        int: A large prime number derived from the request ID
+    """
+    # Use the request_id as a seed for the random generator
+    # This ensures that the same request_id always produces the same prime
+    seed = int(hashlib.sha256(request_id.encode()).hexdigest(), 16)
+    random.seed(seed)
+    
+    # Generate a random number in the range 2^511 to 2^512 - 1
+    lower_bound = 2**511
+    upper_bound = 2**512 - 1
+    candidate = random.randint(lower_bound, upper_bound)
+    
+    # Find the next prime after the candidate
+    prime = sympy.nextprime(candidate)
+    
+    # Reset the random seed to ensure it doesn't affect other operations
+    random.seed()
+    
+    return prime
 
 class UserSession:
     def __init__(self, client, username):
@@ -270,25 +299,10 @@ class UserSession:
         data_columns_str = decodeMessage(self.client.recv(1024))["data"]
         data_columns = [col.strip() for col in data_columns_str.split(',')]
         
-        # Ask for private key
-        self.client.sendall(createMessage("info", "Enter your private key (integer):", True))
-        private_key_str = decodeMessage(self.client.recv(1024))["data"]
-        try:
-            private_key = int(private_key_str)
-        except ValueError:
-            self.client.sendall(createMessage("info", "Invalid private key. Please enter an integer.", False))
-            return
+        # Generate deterministic prime from requestID
+        prime = generate_deterministic_prime(requestID)
         
-        # Ask for shared prime
-        self.client.sendall(createMessage("info", "Enter the shared prime number:", True))
-        prime_str = decodeMessage(self.client.recv(1024))["data"]
-        try:
-            prime = int(prime_str)
-        except ValueError:
-            self.client.sendall(createMessage("info", "Invalid prime number. Please enter an integer.", False))
-            return
-        
-        # Generate private key (待修改)
+        # Generate private key from the prime
         private_key = random.randint(2, prime-2)
         
         # Create PSI parameters
@@ -297,7 +311,8 @@ class UserSession:
             "id_columns": id_columns,
             "data_columns": data_columns,
             "private_key": private_key,
-            "prime": prime
+            "prime": prime,
+            "request_id": requestID
         }
         
         # Send signal to client to start PSI protocol
